@@ -13,5 +13,8 @@ COPY src /app/src
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --root-user-action=ignore .
 
+RUN mkdir -p /var/log/crowdsec-ops-mcp \
+    && chown nobody:nogroup /var/log/crowdsec-ops-mcp
+
 USER nobody
 ENTRYPOINT ["crowdsec-ops-mcp"]

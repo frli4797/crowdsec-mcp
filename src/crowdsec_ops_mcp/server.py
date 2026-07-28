@@ -24,7 +24,11 @@ def _schema(properties: dict, required: list[str] | None = None) -> dict:
 
 WINDOW = {"type": "string", "description": "Lookback window such as 15m, 6h, 24h, 7d."}
 IP = {"type": "string", "description": "IPv4 or IPv6 address to inspect or operate on."}
-EXECUTE = {"type": "boolean", "default": False, "description": "Run the action. False returns a dry-run summary."}
+EXECUTE = {
+    "type": "boolean",
+    "default": False,
+    "description": "Legacy no-op flag. The MCP never executes writes; it only prepares an audited potential cscli command.",
+}
 
 TOOL_DEFS = [
     types.Tool(
@@ -59,12 +63,12 @@ TOOL_DEFS = [
     ),
     types.Tool(
         name="unban_ip",
-        description="Dry-run by default. Delete a CrowdSec decision for one IP when execute is true.",
+        description="Prepare and audit a potential cscli command to delete a CrowdSec decision for one IP. The MCP does not execute it.",
         inputSchema=_schema({"ip": IP, "reason": {"type": "string"}, "execute": EXECUTE}, ["ip"]),
     ),
     types.Tool(
         name="allow_ip",
-        description="Dry-run by default. Add a temporary allow decision for one IP when execute is true.",
+        description="Prepare and audit a potential cscli command to add a temporary allow decision for one IP. The MCP does not execute it.",
         inputSchema=_schema(
             {"ip": IP, "duration": {"type": "string", "default": "1h"}, "reason": {"type": "string"}, "execute": EXECUTE},
             ["ip", "reason"],
@@ -72,7 +76,7 @@ TOOL_DEFS = [
     ),
     types.Tool(
         name="ban_ip",
-        description="Dry-run by default. Add a CrowdSec ban decision for one IP when execute is true.",
+        description="Prepare and audit a potential cscli command to add a CrowdSec ban decision for one IP. The MCP does not execute it.",
         inputSchema=_schema(
             {"ip": IP, "duration": {"type": "string", "default": "4h"}, "reason": {"type": "string"}, "execute": EXECUTE},
             ["ip", "reason"],
@@ -111,18 +115,28 @@ async def suggest_scenario(window: str | None = None) -> dict:
     return await ops.suggest_scenario(window)
 
 
-async def unban_ip(ip: str, reason: str | None = None, execute: bool = False) -> dict:
-    """Dry-run by default. Delete a CrowdSec decision for one IP when execute is true."""
+async def unban_ip(ip: str, reason: str | None = None, execute: bool | None = None) -> dict:
+    """Prepare an audited potential cscli command to delete a CrowdSec decision for one IP."""
     return await ops.write_action("unban", ip, None, reason or "operator unban via MCP", execute)
 
 
-async def allow_ip(ip: str, duration: str | None = "1h", reason: str = "temporary operator allowlist via MCP", execute: bool = False) -> dict:
-    """Dry-run by default. Add a temporary allow decision for one IP when execute is true."""
+async def allow_ip(
+    ip: str,
+    duration: str | None = "1h",
+    reason: str = "temporary operator allowlist via MCP",
+    execute: bool | None = None,
+) -> dict:
+    """Prepare an audited potential cscli command to add a temporary allow decision for one IP."""
     return await ops.write_action("whitelist", ip, duration, reason, execute)
 
 
-async def ban_ip(ip: str, duration: str | None = "4h", reason: str = "manual operator ban via MCP", execute: bool = False) -> dict:
-    """Dry-run by default. Add a CrowdSec ban decision for one IP when execute is true."""
+async def ban_ip(
+    ip: str,
+    duration: str | None = "4h",
+    reason: str = "manual operator ban via MCP",
+    execute: bool | None = None,
+) -> dict:
+    """Prepare an audited potential cscli command to add a CrowdSec ban decision for one IP."""
     return await ops.write_action("ban", ip, duration, reason, execute)
 
 
@@ -178,12 +192,12 @@ def _capability_names() -> list[str]:
 
 async def _main_async() -> None:
     logger.info(
-        "Starting crowdsec-ops-mcp: version=%s transport=stdio mode=%s default_window=%s write_execute_default=%s",
+        "Starting crowdsec-ops-mcp: version=%s transport=stdio mode=%s default_window=%s",
         __version__,
         ops.crowdsec.mode,
         CONFIG.default_window,
-        CONFIG.write_execute_default,
     )
+    logger.info("CrowdSec write audit log: path=%s", CONFIG.write_audit_log_path)
     logger.info("MCP capabilities: tools=%s", ", ".join(_capability_names()))
     await ops.crowdsec.check_lapi()
     async with stdio_server() as (read_stream, write_stream):

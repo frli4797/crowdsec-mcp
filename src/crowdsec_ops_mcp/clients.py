@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-import asyncio
+from datetime import UTC, datetime
+import ipaddress
 import json
 import logging
-import subprocess
+from pathlib import Path
+import shlex
 from typing import Any
 
 import httpx
@@ -12,6 +14,8 @@ from .config import Config
 from .models import CrowdSecAlert, Decision
 
 logger = logging.getLogger(__name__)
+
+WRITE_ACTIONS = {"ban", "unban", "whitelist"}
 
 
 class CrowdSecClient:
@@ -95,28 +99,57 @@ class CrowdSecClient:
         reason: str,
         execute: bool,
     ) -> dict[str, Any]:
+        _validate_write_action(action)
+        ip = _validate_ip(ip)
         command = [self.config.cscli_path, "decisions", "add", "--ip", ip, "--type", action, "--reason", reason]
         if duration:
             command.extend(["--duration", duration])
         if action == "unban":
             command = [self.config.cscli_path, "decisions", "delete", "--ip", ip]
-        summary = {"execute": execute, "command": command, "ip": ip, "action": action, "reason": reason}
-        if not execute:
-            summary["status"] = "dry-run"
-            logger.debug("Prepared CrowdSec decision dry-run: action=%s ip=%s command=%s", action, ip, command)
-            return summary
-        logger.info("Executing CrowdSec decision action: action=%s ip=%s", action, ip)
-        logger.debug("Executing CrowdSec decision command: command=%s", command)
-        proc = await asyncio.to_thread(subprocess.run, command, text=True, capture_output=True, check=False)
-        summary.update({"status": "executed", "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr})
-        logger.debug("Executed CrowdSec decision command: action=%s ip=%s returncode=%d", action, ip, proc.returncode)
+            duration = None
+        cscli_command = shlex.join(command)
+        summary = {
+            "execute_requested": execute,
+            "executed": False,
+            "command": command,
+            "potential_cscli_command": cscli_command,
+            "ip": ip,
+            "action": action,
+            "duration": duration,
+            "reason": reason,
+            "status": "prepared",
+            "note": "This MCP does not execute CrowdSec write actions. Review and run the potential cscli command manually if appropriate.",
+        }
+        self._audit_write(summary)
+        logger.info("Prepared CrowdSec write intent without execution: action=%s ip=%s", action, ip)
+        logger.debug("Prepared potential CrowdSec decision command: command=%s", command)
         return summary
+
+    def _audit_write(self, entry: dict[str, Any]) -> None:
+        path = Path(self.config.write_audit_log_path)
+        if path.parent != Path("."):
+            path.parent.mkdir(parents=True, exist_ok=True)
+        audit_entry = {"timestamp": datetime.now(UTC).isoformat(), **entry}
+        with path.open("a", encoding="utf-8") as audit_log:
+            audit_log.write(json.dumps(audit_entry, sort_keys=True) + "\n")
 
 
 async def _run_json(args: list[str]) -> Any:
     logger.debug("Running command expecting JSON: command=%s", args)
     proc = await asyncio.to_thread(subprocess.run, args, text=True, capture_output=True, check=True)
     return json.loads(proc.stdout or "[]")
+
+
+def _validate_write_action(action: str) -> None:
+    if action not in WRITE_ACTIONS:
+        raise ValueError(f"Unsupported CrowdSec write action: {action}")
+
+
+def _validate_ip(ip: str) -> str:
+    try:
+        return str(ipaddress.ip_address(ip))
+    except ValueError as exc:
+        raise ValueError(f"Invalid IP address for CrowdSec write action: {ip}") from exc
 
 
 def _decision_from_lapi(item: dict[str, Any]) -> Decision:
