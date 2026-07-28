@@ -8,6 +8,7 @@ Every PR must keep the project boundary clear: this MCP only accesses CrowdSec.
 - Tests must pass.
 - Python package build must pass.
 - Docker build must pass when container files or dependencies change.
+- Agentic review is optional and advisory; it must not be configured as a required check.
 
 ## Required PR Content
 
@@ -37,3 +38,5 @@ Use labels that feed generated release notes:
 - `dependencies`
 - `breaking-change`
 - `ignore-for-release`
+
+Use `agentic-review` only when an advisory model review is wanted for a PR. The workflow skips without that label, and it also skips if `OPENAI_API_KEY` is not configured.
