@@ -21,6 +21,14 @@ Do not mount the Docker socket into this container.
 
 Run the MCP near CrowdSec, usually on the same Docker network as the CrowdSec service.
 
+Because the repository and package are private, authenticate Docker to GHCR on the target host before pulling:
+
+```bash
+echo "<github-token-with-read-packages>" | docker login ghcr.io -u "<github-username>" --password-stdin
+```
+
+The token needs `read:packages`. For private packages, it may also need repository access depending on how the package permissions are configured.
+
 1. Copy the example compose file:
 
 ```bash
@@ -245,6 +253,13 @@ If reads return no data:
 - Confirm `CROWDSEC_LAPI_URL` points to the CrowdSec LAPI from inside the container network.
 - Confirm `CROWDSEC_LAPI_KEY` is present in the container environment.
 - Confirm CrowdSec has active decisions or recent alerts for the requested window.
+
+If image pull fails with `401 Unauthorized` or `failed to resolve reference`:
+
+- Confirm the target host is logged in to GHCR with `docker login ghcr.io`.
+- Confirm the token has `read:packages`.
+- Confirm the token identity has access to the private package or private repository.
+- Alternatively, make the GHCR package public if unauthenticated pulls are acceptable.
 
 If write actions fail:
 

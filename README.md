@@ -80,6 +80,12 @@ Docker is the first supported deployment model. Run it on the same Docker networ
 
 The example compose file only accepts CrowdSec-related configuration. Mounting the Docker socket is deliberately avoided.
 
+For the private GHCR image, log in on the target host before pulling:
+
+```bash
+echo "<github-token-with-read-packages>" | docker login ghcr.io -u "<github-username>" --password-stdin
+```
+
 ## Example Tool Calls
 
 ```json
