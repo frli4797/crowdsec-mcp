@@ -16,6 +16,7 @@ Every PR must keep the project boundary clear: this MCP only accesses CrowdSec.
 - Include release-note text for user-visible changes.
 - State whether the change affects the MCP tool contract.
 - State whether the change affects write-action behavior.
+- Dependabot dependency PRs are exempt from the manual PR template requirement.
 
 ## Safety Rules
 
@@ -37,4 +38,3 @@ Use labels that feed generated release notes:
 - `dependencies`
 - `breaking-change`
 - `ignore-for-release`
-

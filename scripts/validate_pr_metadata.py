@@ -20,6 +20,10 @@ def main() -> int:
     body = os.environ.get("PR_BODY", "")
     errors: list[str] = []
 
+    if title.startswith("build(deps"):
+        print("Dependabot dependency PR metadata ok")
+        return 0
+
     if not TITLE_RE.match(title):
         errors.append("PR title must match: Feature|Fix|Chore|Docs|CI/CD|Release: short summary")
 
@@ -43,4 +47,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
