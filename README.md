@@ -6,6 +6,8 @@ This MCP is intentionally CrowdSec-only. It does not connect to VictoriaMetrics,
 
 See [ONBOARDING.md](ONBOARDING.md) for installation, deployment, client configuration, and first-use instructions.
 
+See [docs/roadmap.md](docs/roadmap.md) for the project roadmap, including read-side investigation tools, write-operation planning, and shared reliability work.
+
 See [docs/RELEASE.md](docs/RELEASE.md) and [docs/pull-request-rules.md](docs/pull-request-rules.md) for CI/CD, release, and PR rules.
 
 ## Tools

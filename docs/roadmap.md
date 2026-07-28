@@ -1,10 +1,10 @@
-# Write Operations Roadmap
+# Project Roadmap
 
-This note captures the current thinking around CrowdSec write operations so we can pause or resume the work without losing context.
+This note captures the current project roadmap for `crowdsec-ops-mcp` so we can pause or resume work without losing context.
 
 ## Current Position
 
-The near-term priority may be to improve read-side tools and capabilities before enabling production write operations.
+The near-term priority is to improve read-side tools and capabilities before enabling production write operations.
 
 Read-side improvements are lower risk and likely more useful immediately:
 
@@ -14,32 +14,21 @@ Read-side improvements are lower risk and likely more useful immediately:
 - safer recommendations before any mutation is considered
 - more useful output for agents that correlate CrowdSec with separate logs, metrics, and dashboard MCPs
 
-## Existing Safe Write Foundation
+The roadmap has three main avenues:
 
-The current safe write foundation prepares potential `cscli` commands and writes JSON Lines audit records.
+- read-side CrowdSec investigation tools
+- safe write-intent and future write execution design
+- shared reliability, output contracts, and operator ergonomics
 
-This gives operators:
+## Read-Side Investigation Tools
 
-- a concrete command to review
-- a record of write intent
-- a safe path for local MCP testing
-- a narrow single-IP surface for future execution
-
-The audit log path is configured with:
-
-```text
-WRITE_AUDIT_LOG_PATH
-```
-
-For containerized Codex MCP usage, prefer a host-mounted audit directory so logs survive `docker compose run --rm`.
-
-## Read-Side Roadmap Before Writes
-
-Before enabling production write execution, improve the MCP's read-only operator value and reliability. These additions should stay CrowdSec-only and should not mutate CrowdSec state.
+These additions should stay CrowdSec-only and should not mutate CrowdSec state.
 
 ### 1. Harden Existing Reads
 
-Fix and test the existing `cscli` JSON execution path before adding more tools:
+Status: partially implemented.
+
+Continue hardening the existing `cscli` JSON execution path:
 
 - ensure the subprocess helper imports and handles its runtime dependencies correctly
 - test `decisions()` and `alerts()` against representative mocked `cscli` JSON output
@@ -180,23 +169,39 @@ Good candidates:
 
 This should make downstream agent behavior more predictable and make tests easier to read.
 
-## Suggested Implementation Order
+## Write Operations Avenue
 
-Recommended read-side sequence:
+Write operations should remain a separate avenue from read-side investigation work. The current project position is to keep production mutation paused while read-only operator value matures.
 
-1. harden the existing `cscli` read path
-2. add `crowdsec_health`
-3. add `decision_gap_report`
-4. add `alert_timeline`
-5. improve `inspect_ip`
-6. add `decision_inventory`
-7. improve `suggest_scenario`
-8. add `recent_write_intents`
-9. add pagination and stricter response models as shared cleanup
+### Existing Safe Write Foundation
 
-## Actual Execution Options
+The current safe write foundation prepares potential `cscli` commands and writes JSON Lines audit records.
 
-### Option 1: Execute With cscli
+This gives operators:
+
+- a concrete command to review
+- a record of write intent
+- a safe path for local MCP testing
+- a narrow single-IP surface for future execution
+
+The audit log path is configured with:
+
+```text
+WRITE_AUDIT_LOG_PATH
+```
+
+For containerized Codex MCP usage, prefer a host-mounted audit directory so logs survive `docker compose run --rm`.
+
+### Future Execution Options
+
+When write operations are revisited, decide first between:
+
+1. packaging or mounting `cscli` plus machine credentials
+2. implementing direct LAPI machine-auth writes
+
+Until that decision is made, keep write execution PRs draft or experimental.
+
+#### Option 1: Execute With cscli
 
 The proposed write execution path uses:
 
@@ -249,7 +254,7 @@ Cons:
 - requires machine credential handling in the MCP runtime
 - subprocess behavior must be carefully audited and tested
 
-### Option 2: Execute Through LAPI
+#### Option 2: Execute Through LAPI
 
 A future implementation could call LAPI directly with machine credentials.
 
@@ -266,7 +271,7 @@ Cons:
 - still requires machine credentials
 - less familiar to operators than `cscli`
 
-## Safety Constraints For Any Write Path
+### Safety Constraints For Any Write Path
 
 Any future write execution should keep these constraints:
 
@@ -282,13 +287,17 @@ Any future write execution should keep these constraints:
 - no Docker socket access
 - no direct VictoriaMetrics, VictoriaLogs, Grafana, Snort, or reverse proxy access
 
-## Recommended Next Step
+## Suggested Implementation Order
 
-Temporarily abandon production write execution and focus on read-side capabilities.
+Recommended sequence:
 
-When write operations are revisited, decide first between:
-
-1. packaging/mounting `cscli` plus machine credentials
-2. implementing direct LAPI machine-auth writes
-
-Until that decision is made, keep write execution PRs draft or experimental.
+1. continue hardening the existing `cscli` read path
+2. extend or refine `crowdsec_health`
+3. add `decision_gap_report`
+4. add `alert_timeline`
+5. improve `inspect_ip`
+6. add `decision_inventory`
+7. improve `suggest_scenario`
+8. add `recent_write_intents`
+9. add pagination and stricter response models as shared cleanup
+10. revisit write execution only after the read-side tools are stronger
