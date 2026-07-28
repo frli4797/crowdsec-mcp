@@ -4,6 +4,14 @@
 
 It exposes CrowdSec decisions, alerts, summaries, and safe single-IP action proposals to MCP clients. It is intentionally CrowdSec-only: it does not connect to VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
 
+## Contents
+
+- [What You Can Do](#what-you-can-do)
+- [Getting Started](#getting-started)
+- [Tools](#tools)
+- [Configuration](#configuration)
+- [Project Documents](#project-documents)
+
 ## What You Can Do
 
 - Check whether the CrowdSec backend is reachable.
@@ -49,4 +57,10 @@ See [docs/decision-inventory-example.md](docs/decision-inventory-example.md) for
 ## Project Documents
 
 - [ONBOARDING.md](ONBOARDING.md): user installation and first-use guide
+- [docs/decision-inventory-example.md](docs/decision-inventory-example.md): example `decision_inventory` tool calls
+- [docs/agent-usage.md](docs/agent-usage.md): agent prompt patterns and investigation guidance
+- [docs/development.md](docs/development.md): local development workflow
 - [docs/roadmap.md](docs/roadmap.md): project roadmap
+- [docs/RELEASE.md](docs/RELEASE.md): release process
+- [docs/pull-request-rules.md](docs/pull-request-rules.md): pull request rules
+- [docs/release-notes-template.md](docs/release-notes-template.md): release notes template
