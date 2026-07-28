@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from .clients import CrowdSecClient
@@ -44,6 +45,32 @@ class SecurityOps:
         alerts = await self.crowdsec.alerts(window=window)
         return {"window": window or self.config.default_window, "source": "crowdsec", "top_source_ips": top_source_ips(alerts)}
 
+    async def decision_inventory(
+        self,
+        action: str | None = None,
+        origin: str | None = None,
+        scenario: str | None = None,
+        country: str | None = None,
+        asn: str | None = None,
+        ip: str | None = None,
+        limit: int = 20,
+        expiring_soon_hours: int = 24,
+        long_lived_days: int = 30,
+    ) -> dict[str, Any]:
+        decisions = await self.crowdsec.decisions(ip)
+        return decision_inventory(
+            decisions,
+            action=action,
+            origin=origin,
+            scenario=scenario,
+            country=country,
+            asn=asn,
+            ip=ip,
+            limit=limit,
+            expiring_soon_hours=expiring_soon_hours,
+            long_lived_days=long_lived_days,
+        )
+
     async def suggest_scenario(self, window: str | None = None) -> dict[str, Any]:
         alerts = await self.crowdsec.alerts(window=window)
         return scenario_suggestion(alerts, window or self.config.default_window)
@@ -86,6 +113,78 @@ def top_source_ips(alerts: list[CrowdSecAlert]) -> list[dict[str, Any]]:
     return _top([a.ip for a in alerts if a.ip], limit=20)
 
 
+def decision_inventory(
+    decisions: list[Decision],
+    *,
+    action: str | None = None,
+    origin: str | None = None,
+    scenario: str | None = None,
+    country: str | None = None,
+    asn: str | None = None,
+    ip: str | None = None,
+    limit: int = 20,
+    expiring_soon_hours: int = 24,
+    long_lived_days: int = 30,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    now = _as_utc(now or datetime.now(UTC))
+    filtered = [
+        decision
+        for decision in decisions
+        if _matches(decision.action, action)
+        and _matches(decision.origin, origin)
+        and _matches(decision.scenario, scenario)
+        and _matches(decision.country, country)
+        and _matches(decision.as_name, asn)
+        and _matches(decision.ip, ip)
+    ]
+    limit = max(0, min(limit, 100))
+    expiring_soon_cutoff = now + timedelta(hours=max(expiring_soon_hours, 0))
+    long_lived_cutoff = now + timedelta(days=max(long_lived_days, 0))
+
+    expiring_soon = [
+        decision
+        for decision in filtered
+        if (until := _parse_timestamp(decision.until)) is not None and now <= until <= expiring_soon_cutoff
+    ]
+    stale_or_long_lived = [
+        decision
+        for decision in filtered
+        if decision.until is None or ((until := _parse_timestamp(decision.until)) is not None and until >= long_lived_cutoff)
+    ]
+
+    return {
+        "filters": {
+            "action": action,
+            "origin": origin,
+            "scenario": scenario,
+            "country": country,
+            "asn": asn,
+            "ip": ip,
+        },
+        "total_active_decisions": len(filtered),
+        "grouped": {
+            "actions": _top([d.action for d in filtered]),
+            "origins": _top([d.origin for d in filtered]),
+            "scenarios": _top([d.scenario for d in filtered]),
+            "countries": _top([d.country for d in filtered]),
+            "asns": _top([d.as_name for d in filtered]),
+        },
+        "expiring_soon": {
+            "within_hours": max(expiring_soon_hours, 0),
+            "count": len(expiring_soon),
+            "decisions": [_decision_row(d) for d in _sort_by_until(expiring_soon)[:limit]],
+        },
+        "stale_or_long_lived": {
+            "long_lived_days": max(long_lived_days, 0),
+            "count": len(stale_or_long_lived),
+            "decisions": [_decision_row(d) for d in _sort_by_until(stale_or_long_lived)[:limit]],
+        },
+        "representative_decisions": [_decision_row(d) for d in _sort_by_until(filtered)[:limit]],
+        "limit": limit,
+    }
+
+
 def suspicious_trends(decisions: list[Decision], alerts: list[CrowdSecAlert]) -> list[str]:
     trends: list[str] = []
     if len(decisions) == 0 and alerts:
@@ -124,3 +223,37 @@ def scenario_suggestion(alerts: list[CrowdSecAlert], window: str) -> dict[str, A
 def _top(values: list[str | None], limit: int = 10) -> list[dict[str, Any]]:
     counter = Counter(v for v in values if v)
     return [{"value": value, "count": count} for value, count in counter.most_common(limit)]
+
+
+def _matches(value: str | None, expected: str | None) -> bool:
+    if expected is None:
+        return True
+    return (value or "").casefold() == expected.casefold()
+
+
+def _decision_row(decision: Decision) -> dict[str, Any]:
+    return decision.model_dump()
+
+
+def _sort_by_until(decisions: list[Decision]) -> list[Decision]:
+    def key(decision: Decision) -> tuple[bool, datetime, str]:
+        until = _parse_timestamp(decision.until)
+        return until is None, until or datetime.max.replace(tzinfo=UTC), decision.ip
+
+    return sorted(decisions, key=key)
+
+
+def _parse_timestamp(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    normalized = value.replace("Z", "+00:00")
+    try:
+        return _as_utc(datetime.fromisoformat(normalized))
+    except ValueError:
+        return None
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
