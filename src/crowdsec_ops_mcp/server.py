@@ -147,7 +147,7 @@ async def call_tool(_ctx: object, params: types.CallToolRequestParams) -> types.
 
 server: Server[dict[str, object]] = Server(
     "crowdsec-ops-mcp",
-    version="0.1.0",
+    version="0.1.1",
     description="CrowdSec-only MCP server for decisions, alerts, and scoped IP actions.",
     on_list_tools=list_tools,
     on_call_tool=call_tool,

@@ -1,6 +1,6 @@
 services:
   crowdsec-ops-mcp:
-    image: ghcr.io/frli4797/crowdsec-ops-mcp:0.1.0
+    image: ghcr.io/frli4797/crowdsec-ops-mcp:0.1.1
     container_name: crowdsec-ops-mcp
     restart: unless-stopped
     environment:
