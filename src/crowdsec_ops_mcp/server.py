@@ -29,7 +29,7 @@ TOOL_DEFS = [
     ),
     types.Tool(
         name="security_summary",
-        description="Summarize recent homelab security activity.",
+        description="Summarize recent CrowdSec decisions and alerts.",
         inputSchema=_schema({"window": WINDOW}),
     ),
     types.Tool(
@@ -82,7 +82,7 @@ async def inspect_ip(ip: str, window: str | None = None) -> dict:
 
 
 async def security_summary(window: str | None = None) -> dict:
-    """Summarize recent homelab security activity."""
+    """Summarize recent CrowdSec decisions and alerts."""
     return await ops.security_summary(window)
 
 
@@ -148,7 +148,7 @@ async def call_tool(_ctx: object, params: types.CallToolRequestParams) -> types.
 server: Server[dict[str, object]] = Server(
     "crowdsec-ops-mcp",
     version="0.1.0",
-    description="CrowdSec-focused MCP server for homelab security operations.",
+    description="CrowdSec-only MCP server for decisions, alerts, and scoped IP actions.",
     on_list_tools=list_tools,
     on_call_tool=call_tool,
 )

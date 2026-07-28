@@ -23,11 +23,6 @@ class SecurityOps:
             "crowdsec_alerts": [a.model_dump() for a in alerts],
             "summary": summarize_ip(decisions, alerts),
             "recommendation": recommend(decisions, alerts).model_dump(),
-            "orchestration_hints": [
-                "Use the logs MCP to fetch Snort, AppSec, NPM, and CrowdSec log events for this IP.",
-                "Use the metrics MCP to check bouncer health and remediation counters.",
-                "Use the Grafana MCP to link dashboards or annotate executed operator actions.",
-            ],
         }
 
     async def security_summary(self, window: str | None = None) -> dict[str, Any]:
@@ -43,11 +38,6 @@ class SecurityOps:
             "top_crowdsec_scenarios": _top([x.scenario for x in alerts if x.scenario]),
             "decision_actions": _top([x.action for x in decisions]),
             "trends": suspicious_trends(decisions, alerts),
-            "orchestration_hints": [
-                "Ask the metrics MCP for CrowdSec bouncer and AppSec block health.",
-                "Ask the logs MCP for Snort volume, top signatures, and related reverse proxy events.",
-                "Ask the Grafana MCP for dashboard links when presenting the summary.",
-            ],
         }
 
     async def top_offenders(self, window: str | None = None) -> dict[str, Any]:
@@ -67,10 +57,7 @@ class SecurityOps:
         execute: bool | None,
     ) -> dict[str, Any]:
         should_execute = self.config.write_execute_default if execute is None else execute
-        result = await self.crowdsec.write_decision(action, ip, duration, reason, should_execute)
-        if should_execute:
-            result["audit_hint"] = "Use the Grafana MCP to create an annotation for this operator action."
-        return result
+        return await self.crowdsec.write_decision(action, ip, duration, reason, should_execute)
 
 
 def summarize_ip(decisions: list[Decision], alerts: list[CrowdSecAlert]) -> dict[str, Any]:

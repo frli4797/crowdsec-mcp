@@ -1,8 +1,8 @@
 # crowdsec-ops-mcp
 
-Local MCP server for CrowdSec operations in a homelab security stack.
+Local MCP server for CrowdSec operations.
 
-This MCP is intentionally CrowdSec-only. Codex should orchestrate full investigations by combining this server with separate MCPs for metrics, logs, and Grafana. That keeps credentials scoped and avoids giving this container direct access to VictoriaMetrics, VictoriaLogs, or Grafana.
+This MCP is intentionally CrowdSec-only. It does not connect to VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker. Agents are the orchestrators: they combine this MCP's CrowdSec state with evidence from separate metrics, logs, and dashboard MCPs when a wider investigation needs it.
 
 ## Tools
 
@@ -16,21 +16,25 @@ This MCP is intentionally CrowdSec-only. Codex should orchestrate full investiga
 - `allow_ip(ip, duration?, reason, execute=false)`
 - `ban_ip(ip, duration?, reason, execute=false)`
 
-## Orchestration Model
+## Architecture Boundary
 
-Use this MCP for CrowdSec state and tightly scoped CrowdSec operator actions:
+This server owns one responsibility: expose CrowdSec state and tightly scoped CrowdSec operator actions through MCP.
 
-- active decisions
-- recent CrowdSec alerts
-- source IPs, countries, ASNs, scenarios, timestamps
-- dry-run ban, unban, and temporary allow actions
-- YAML proposals for scenario tuning
+It may access:
 
-Use other MCPs for adjacent evidence:
+- CrowdSec LAPI for read-only decision data
+- `cscli` for alert reads and explicit single-IP write actions
 
-- logs MCP: Snort alerts, AppSec events, NPM/reverse-proxy logs, raw CrowdSec logs
-- metrics MCP: bouncer health, remediation counters, AppSec block volume
-- Grafana MCP: dashboard links and audit annotations
+It must not access:
+
+- VictoriaMetrics
+- VictoriaLogs
+- Grafana
+- Snort directly
+- reverse proxy logs
+- the Docker socket
+
+Agents should perform cross-system investigations by calling this MCP alongside separate MCPs for logs, metrics, and dashboards. This keeps service credentials scoped and makes each MCP auditable on its own.
 
 ## Configuration
 
@@ -61,13 +65,15 @@ Run the MCP server over stdio:
 crowdsec-ops-mcp
 ```
 
-## Docker
+## Deployment
 
 ```bash
 docker compose -f docker-compose.example.yml up --build
 ```
 
-Mounting the Docker socket is deliberately avoided. Prefer CrowdSec LAPI credentials for reads and a narrowly scoped `cscli` installation or wrapper for writes.
+Docker is the first supported deployment model. Run it on the same Docker network as CrowdSec, or on a host that can reach CrowdSec LAPI and run a narrowly scoped `cscli` wrapper for writes.
+
+The example compose file only accepts CrowdSec-related configuration. Mounting the Docker socket is deliberately avoided.
 
 ## Example Tool Calls
 
@@ -86,6 +92,6 @@ The second call returns a dry-run summary. Add `"execute": true` to run it.
 - Read-only CrowdSec tools are the default workflow.
 - Write tools only operate on a single IP.
 - No bulk ban, bulk unban, or delete-all operation is exposed.
-- Parser, scenario, profile, and external rule changes are generated only as proposals.
+- Parser, scenario, and profile changes are generated only as proposals.
 - Temporary allowlisting is preferred over permanent allowlisting.
-- Executed write actions return an audit hint so Codex can create a Grafana annotation through the Grafana MCP.
+- Executed write actions return the command, return code, stdout, and stderr so the calling agent can audit or annotate through other systems if appropriate.
