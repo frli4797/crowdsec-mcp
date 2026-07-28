@@ -10,6 +10,8 @@ See [docs/roadmap.md](docs/roadmap.md) for the project roadmap, including read-s
 
 See [docs/RELEASE.md](docs/RELEASE.md) and [docs/pull-request-rules.md](docs/pull-request-rules.md) for CI/CD, release, and PR rules.
 
+See [docs/decision-inventory-example.md](docs/decision-inventory-example.md) for example `decision_inventory` tool calls and an operator prompt.
+
 ## Tools
 
 - `crowdsec_health(include_sample_counts=false)`
@@ -17,6 +19,7 @@ See [docs/RELEASE.md](docs/RELEASE.md) and [docs/pull-request-rules.md](docs/pul
 - `security_summary(window?)`
 - `top_offenders(window?)`
 - `recent_crowdsec_decisions(window?)`
+- `decision_inventory(action?, origin?, scenario?, country?, asn?, ip?, limit?, expiring_soon_hours?, long_lived_days?)`
 - `recent_crowdsec_alerts(window?)`
 - `suggest_scenario(window?)`
 - `unban_ip(ip, reason?, execute=false)`

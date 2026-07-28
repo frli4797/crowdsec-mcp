@@ -24,6 +24,7 @@ def _schema(properties: dict, required: list[str] | None = None) -> dict:
 
 WINDOW = {"type": "string", "description": "Lookback window such as 15m, 6h, 24h, 7d."}
 IP = {"type": "string", "description": "IPv4 or IPv6 address to inspect or operate on."}
+LIMIT = {"type": "integer", "default": 20, "minimum": 0, "maximum": 100}
 EXECUTE = {
     "type": "boolean",
     "default": False,
@@ -60,6 +61,23 @@ TOOL_DEFS = [
         name="recent_crowdsec_decisions",
         description="Return active CrowdSec decisions.",
         inputSchema=_schema({"window": WINDOW}),
+    ),
+    types.Tool(
+        name="decision_inventory",
+        description="Summarize active CrowdSec decisions with filters, grouped counts, expiry views, and representative rows.",
+        inputSchema=_schema(
+            {
+                "action": {"type": "string", "description": "Filter by decision action, such as ban or captcha."},
+                "origin": {"type": "string", "description": "Filter by decision origin."},
+                "scenario": {"type": "string", "description": "Filter by CrowdSec scenario."},
+                "country": {"type": "string", "description": "Filter by source country code."},
+                "asn": {"type": "string", "description": "Filter by ASN name."},
+                "ip": IP,
+                "limit": LIMIT,
+                "expiring_soon_hours": {"type": "integer", "default": 24, "minimum": 0},
+                "long_lived_days": {"type": "integer", "default": 30, "minimum": 0},
+            }
+        ),
     ),
     types.Tool(
         name="recent_crowdsec_alerts",
@@ -115,6 +133,31 @@ async def recent_crowdsec_decisions(window: str | None = None) -> list[dict]:
     return [d.model_dump() for d in await ops.crowdsec.decisions()]
 
 
+async def decision_inventory(
+    action: str | None = None,
+    origin: str | None = None,
+    scenario: str | None = None,
+    country: str | None = None,
+    asn: str | None = None,
+    ip: str | None = None,
+    limit: int = 20,
+    expiring_soon_hours: int = 24,
+    long_lived_days: int = 30,
+) -> dict:
+    """Summarize active CrowdSec decisions with filters, grouped counts, and expiry views."""
+    return await ops.decision_inventory(
+        action=action,
+        origin=origin,
+        scenario=scenario,
+        country=country,
+        asn=asn,
+        ip=ip,
+        limit=limit,
+        expiring_soon_hours=expiring_soon_hours,
+        long_lived_days=long_lived_days,
+    )
+
+
 async def recent_crowdsec_alerts(window: str | None = None) -> list[dict]:
     """Return recent CrowdSec alerts."""
     return [a.model_dump() for a in await ops.crowdsec.alerts(window=window)]
@@ -168,6 +211,7 @@ async def call_tool(_ctx: object, params: types.CallToolRequestParams) -> types.
         "security_summary": security_summary,
         "top_offenders": top_offenders,
         "recent_crowdsec_decisions": recent_crowdsec_decisions,
+        "decision_inventory": decision_inventory,
         "recent_crowdsec_alerts": recent_crowdsec_alerts,
         "suggest_scenario": suggest_scenario,
         "unban_ip": unban_ip,
