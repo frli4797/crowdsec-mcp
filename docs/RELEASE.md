@@ -55,6 +55,8 @@ Release tags publish:
 
 Prefer the exact version tag in production.
 
+Example compose deployments should use the published image instead of `build: .` so target hosts do not need the source tree or build toolchain.
+
 ## Rollback
 
 Redeploy the previous known-good image tag. Avoid deleting release tags unless the release exposed credentials or contains a severe publishing mistake.

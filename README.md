@@ -72,7 +72,8 @@ crowdsec-ops-mcp
 ## Deployment
 
 ```bash
-docker compose -f docker-compose.example.yml up --build
+docker compose -f docker-compose.example.yml pull
+docker compose -f docker-compose.example.yml up -d
 ```
 
 Docker is the first supported deployment model. Run it on the same Docker network as CrowdSec, or on a host that can reach CrowdSec LAPI and run a narrowly scoped `cscli` wrapper for writes.

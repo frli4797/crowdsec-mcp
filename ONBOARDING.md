@@ -42,10 +42,11 @@ networks:
   - security
 ```
 
-4. Start the container:
+4. Pull and start the published container:
 
 ```bash
-docker compose up --build -d
+docker compose pull
+docker compose up -d
 ```
 
 5. Check logs:
@@ -217,7 +218,7 @@ uv run pytest
 uv run crowdsec-ops-mcp
 ```
 
-Docker remains the recommended deployment path for the first version.
+Docker remains the recommended deployment path for the first version. Target environments should pull the published GHCR image; local image builds are for development and CI validation.
 
 ## Safety Checklist
 
