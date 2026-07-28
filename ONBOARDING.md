@@ -6,7 +6,7 @@ This guide explains how to install, run, and use `crowdsec-ops-mcp`.
 
 `crowdsec-ops-mcp` exposes CrowdSec state and tightly scoped single-IP operator action proposals to an MCP client.
 
-It only talks to CrowdSec. Agents are responsible for combining this MCP with separate logs, metrics, and dashboard MCPs when a broader investigation needs more context.
+It only talks to CrowdSec. For broader investigations, use it alongside separate tools for logs, metrics, and dashboards.
 
 ## Prerequisites
 
@@ -152,112 +152,21 @@ The response includes a `potential_cscli_command` and appends the prepared inten
 }
 ```
 
-## Efficient Agent Prompts
+Docker remains the recommended deployment path for the first version. Target environments should pull the published GHCR image.
 
-Use prompts that name the target, the time window, and the desired decision. Remind the agent that this MCP is CrowdSec-only and that other evidence should come from separate MCPs.
-
-Inspect an IP with a recommendation:
-
-```text
-Inspect 203.0.113.10 in CrowdSec for the last 24h. Show active decisions, recent alerts, scenarios, country/ASN, and timestamps. Recommend ignore, monitor, keep ban, unban, temporary allow, or manual ban. Do not execute any write action.
-```
-
-Investigate an IP across the wider stack:
-
-```text
-Investigate 203.0.113.10 for the last 24h. Use crowdsec-ops-mcp only for CrowdSec decisions and alerts. Use the logs MCP for Snort/AppSec/reverse-proxy evidence, the metrics MCP for remediation health, and the dashboard MCP only for links or annotations. Summarize evidence separately by source and make a final operator recommendation. Do not execute changes.
-```
-
-Review current CrowdSec posture:
-
-```text
-Summarize CrowdSec activity for the last 24h. Include active decision count, recent alert count, top source IPs, top countries/ASNs, top scenarios, and suspicious trends. Keep the answer focused on CrowdSec data only.
-```
-
-Prepare a safe ban:
-
-```text
-Check whether 203.0.113.10 should be manually banned for 4h. First inspect CrowdSec evidence for the last 24h, then prepare a potential cscli ban command with a clear reason if warranted. Do not execute changes.
-```
-
-Prepare a temporary allow:
-
-```text
-Inspect 198.51.100.25 in CrowdSec and decide whether a temporary allow is safer than unbanning. If allowlisting is justified, prepare only a potential allow_ip command for 1h with the reason. Do not execute changes.
-```
-
-Prepare an operator-reviewed command:
-
-```text
-Prepare the previously reviewed ban command for 203.0.113.10 for 4h with reason "confirmed repeated exploit attempts". Use only the single-IP ban tool. Do not perform any bulk action.
-```
-
-Suggest tuning without applying it:
-
-```text
-Analyze recent CrowdSec alerts from the last 7d and suggest scenario tuning if there is a repeated pattern. Return proposed YAML only, with evidence, risk, expected noise, and recommended simulation period. Do not modify CrowdSec files.
-```
-
-Good prompts usually include:
-
-- a specific IP or window
-- whether write proposals are wanted
-- whether the answer should stay CrowdSec-only or orchestrate other MCPs
-- the expected output, such as recommendation, potential command, or YAML proposal
-
-## Local Development
-
-Bootstrap a fresh worktree with local runtime files:
-
-```bash
-./scripts/bootstrap_worktree.sh
-```
-
-This creates `docker-compose.yaml`, `.env`, and `.venv`, then installs the package with development dependencies. For Git worktrees, it copies `docker-compose.yaml` or `docker-compose.yml` and `.env` from the main checkout when those files exist, so local Compose settings and secrets follow the worktree without being committed. Existing files are left in place.
-
-To copy from a specific source checkout:
-
-```bash
-MAIN_WORKTREE_DIR=/path/to/crowdsec-mcp ./scripts/bootstrap_worktree.sh
-```
-
-Use a virtual environment:
-
-```bash
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -e ".[dev]"
-pytest
-crowdsec-ops-mcp
-```
-
-Or use `uv` for development:
-
-```bash
-uv venv
-uv pip install -e ".[dev]"
-uv run pytest
-uv run crowdsec-ops-mcp
-```
-
-Docker remains the recommended deployment path for the first version. Target environments should pull the published GHCR image; local image builds are for development and CI validation.
-
-Image tags:
+Published image tags:
 
 - `ghcr.io/frli4797/crowdsec-ops-mcp:0.1.1` for an exact release
 - `ghcr.io/frli4797/crowdsec-ops-mcp:latest` for the latest release
 - `ghcr.io/frli4797/crowdsec-ops-mcp:edge` or `:main` for the latest `main` build
-- `ghcr.io/frli4797/crowdsec-ops-mcp:pr-123` for a same-repository PR preview image
-
-Docker tags cannot contain `/` or `#`, so use `:edge`, `:main`, and `:pr-123`.
 
 ## Safety Checklist
 
 - Prefer temporary allow entries over permanent allowlisting.
 - Review every prepared write command before running it manually outside the MCP.
-- Do not add bulk ban, bulk unban, or delete-all tools.
-- Do not add direct access to VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
-- Let agents orchestrate cross-system investigations through separate MCPs.
+- This MCP does not expose bulk ban, bulk unban, or delete-all tools.
+- This MCP does not directly access VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
+- Use separate tools for logs, metrics, and dashboards when broader investigations need evidence outside CrowdSec.
 
 ## Troubleshooting
 
