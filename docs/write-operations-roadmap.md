@@ -33,6 +33,165 @@ WRITE_AUDIT_LOG_PATH
 
 For containerized Codex MCP usage, prefer a host-mounted audit directory so logs survive `docker compose run --rm`.
 
+## Read-Side Roadmap Before Writes
+
+Before enabling production write execution, improve the MCP's read-only operator value and reliability. These additions should stay CrowdSec-only and should not mutate CrowdSec state.
+
+### 1. Harden Existing Reads
+
+Fix and test the existing `cscli` JSON execution path before adding more tools:
+
+- ensure the subprocess helper imports and handles its runtime dependencies correctly
+- test `decisions()` and `alerts()` against representative mocked `cscli` JSON output
+- cover `cscli` failures, empty output, malformed JSON, and missing executable behavior
+- keep logs on stderr so stdio transport remains valid
+
+### 2. Add a CrowdSec Health Tool
+
+Add a read-only `crowdsec_health` tool that helps operators understand why results may be empty or incomplete.
+
+Useful fields:
+
+- backend mode: LAPI or `cscli`
+- LAPI URL presence and reachability, without exposing secrets
+- `cscli` path and availability when relevant
+- default lookback window
+- write audit log path
+- exposed tool capabilities
+- optional tiny sample counts for decisions and alerts
+
+### 3. Add Decision Inventory Views
+
+Add a `decision_inventory` tool for answering what is currently remediated and why.
+
+Useful filters:
+
+- action
+- origin
+- scenario
+- country
+- ASN
+- IP
+
+Useful output:
+
+- total active decisions
+- decisions grouped by action, origin, scenario, country, and ASN
+- decisions expiring soon
+- stale or long-lived decisions
+- representative decision rows with a configurable limit
+
+### 4. Add Alert Timeline Bucketing
+
+Add an `alert_timeline` tool that groups recent alerts into time buckets.
+
+Useful inputs:
+
+- `window`
+- `bucket`, such as `15m`, `1h`, or `1d`
+- optional scenario, country, ASN, or IP filters
+
+Useful output:
+
+- alert count per bucket
+- event count per bucket when `events_count` is available
+- top scenarios per bucket
+- top source IPs per bucket
+- first and last alert timestamps
+
+### 5. Add Decision Gap Analysis
+
+Add a `decision_gap_report` tool that highlights places where the read-only evidence suggests operator attention.
+
+Useful findings:
+
+- repeated alerts with no active decision
+- active decisions with no recent alerts
+- noisy scenarios
+- top repeat offenders below any current decision threshold
+- decisions that may be expiring while alerts continue
+
+This tool should return evidence and recommendations only. It should not prepare write intents unless the caller explicitly invokes an existing write-intent tool separately.
+
+### 6. Improve IP Inspection
+
+Extend `inspect_ip` with normalized fields that make agent and human review easier.
+
+Useful fields:
+
+- first seen and last seen timestamps
+- total alert count and total event count
+- unique scenarios
+- active decision actions
+- decision expiry timestamps
+- country and ASN evidence
+- clearer recommendation shape with action, rationale, confidence, and suggested follow-up
+
+### 7. Make Scenario Suggestions Evidence-Driven
+
+Improve `suggest_scenario` so generated proposals are derived from observed alert frequency and distribution rather than always emitting a generic repeat-offender scenario.
+
+Useful output:
+
+- evidence used for capacity, leakspeed, groupby, and blackhole choices
+- expected noise level
+- simulation period
+- risks and known false-positive patterns
+- reasons not to apply the proposal
+- YAML proposal kept as a suggested artifact only
+
+### 8. Add Read-Only Write-Intent Audit Introspection
+
+Add a `recent_write_intents` tool that reads the JSON Lines audit log and returns recently prepared commands.
+
+Useful safeguards:
+
+- configurable limit
+- newest-first ordering
+- graceful handling when the audit log does not exist
+- no execution or replay behavior
+- no bulk action helper
+
+### 9. Add Limits and Pagination
+
+List-like tools should accept limits so MCP responses stay small during busy periods.
+
+Useful controls:
+
+- `limit`
+- optional offset or cursor-style continuation
+- deterministic sort order
+- clear truncation metadata
+
+### 10. Tighten Output Contracts
+
+Move frequently returned dictionaries into explicit response models where practical.
+
+Good candidates:
+
+- health response
+- IP inspection summary
+- recommendation
+- decision inventory response
+- alert timeline response
+- gap analysis findings
+
+This should make downstream agent behavior more predictable and make tests easier to read.
+
+## Suggested Implementation Order
+
+Recommended read-side sequence:
+
+1. harden the existing `cscli` read path
+2. add `crowdsec_health`
+3. add `decision_gap_report`
+4. add `alert_timeline`
+5. improve `inspect_ip`
+6. add `decision_inventory`
+7. improve `suggest_scenario`
+8. add `recent_write_intents`
+9. add pagination and stricter response models as shared cleanup
+
 ## Actual Execution Options
 
 ### Option 1: Execute With cscli
