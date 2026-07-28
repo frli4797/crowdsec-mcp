@@ -1,0 +1,16 @@
+services:
+  crowdsec-ops-mcp:
+    build: .
+    container_name: crowdsec-ops-mcp
+    restart: unless-stopped
+    environment:
+      DEFAULT_WINDOW: 24h
+      CROWDSEC_LAPI_URL: http://crowdsec:8080
+      CROWDSEC_LAPI_KEY: ${CROWDSEC_LAPI_KEY}
+      WRITE_EXECUTE_DEFAULT: "false"
+    networks:
+      - security
+
+networks:
+  security:
+    external: true
