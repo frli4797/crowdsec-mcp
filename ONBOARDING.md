@@ -4,7 +4,7 @@ This guide explains how to install, run, and use `crowdsec-ops-mcp`.
 
 ## What This MCP Does
 
-`crowdsec-ops-mcp` exposes CrowdSec state and tightly scoped single-IP operator actions to an MCP client.
+`crowdsec-ops-mcp` exposes CrowdSec state and tightly scoped single-IP operator action proposals to an MCP client.
 
 It only talks to CrowdSec. Agents are responsible for combining this MCP with separate logs, metrics, and dashboard MCPs when a broader investigation needs more context.
 
@@ -13,7 +13,7 @@ It only talks to CrowdSec. Agents are responsible for combining this MCP with se
 - Docker and Docker Compose
 - Network access from this container to CrowdSec LAPI
 - A CrowdSec LAPI key for read access
-- Optional: `cscli` access or a wrapper if you want executed write actions
+- Optional: `cscli` path configuration if you want generated command text to match a non-default local path
 
 Do not mount the Docker socket into this container.
 
@@ -125,7 +125,7 @@ Get a CrowdSec summary:
 }
 ```
 
-Dry-run a manual ban:
+Prepare a potential manual ban command:
 
 ```json
 {
@@ -138,7 +138,7 @@ Dry-run a manual ban:
 }
 ```
 
-Execute only after reviewing the dry-run command:
+The response includes a `potential_cscli_command` and appends the prepared intent to the write audit log. The MCP does not execute the command, even if a legacy `execute` flag is sent:
 
 ```json
 {
@@ -177,19 +177,19 @@ Summarize CrowdSec activity for the last 24h. Include active decision count, rec
 Prepare a safe ban:
 
 ```text
-Check whether 203.0.113.10 should be manually banned for 4h. First inspect CrowdSec evidence for the last 24h, then produce a dry-run ban command with a clear reason if warranted. Do not set execute=true.
+Check whether 203.0.113.10 should be manually banned for 4h. First inspect CrowdSec evidence for the last 24h, then prepare a potential cscli ban command with a clear reason if warranted. Do not execute changes.
 ```
 
 Prepare a temporary allow:
 
 ```text
-Inspect 198.51.100.25 in CrowdSec and decide whether a temporary allow is safer than unbanning. If allowlisting is justified, create only a dry-run allow_ip request for 1h with the reason. Do not execute it.
+Inspect 198.51.100.25 in CrowdSec and decide whether a temporary allow is safer than unbanning. If allowlisting is justified, prepare only a potential allow_ip command for 1h with the reason. Do not execute changes.
 ```
 
-Execute after approval:
+Prepare an operator-reviewed command:
 
 ```text
-Execute the previously reviewed ban for 203.0.113.10 for 4h with reason "confirmed repeated exploit attempts". Use only the single-IP ban tool. Do not perform any bulk action.
+Prepare the previously reviewed ban command for 203.0.113.10 for 4h with reason "confirmed repeated exploit attempts". Use only the single-IP ban tool. Do not perform any bulk action.
 ```
 
 Suggest tuning without applying it:
@@ -201,9 +201,9 @@ Analyze recent CrowdSec alerts from the last 7d and suggest scenario tuning if t
 Good prompts usually include:
 
 - a specific IP or window
-- whether writes are allowed
+- whether write proposals are wanted
 - whether the answer should stay CrowdSec-only or orchestrate other MCPs
-- the expected output, such as recommendation, dry-run command, or YAML proposal
+- the expected output, such as recommendation, potential command, or YAML proposal
 
 ## Local Development
 
@@ -239,9 +239,8 @@ Docker tags cannot contain `/` or `#`, so use `:edge`, `:main`, and `:pr-123`.
 
 ## Safety Checklist
 
-- Keep `WRITE_EXECUTE_DEFAULT=false`.
 - Prefer temporary allow entries over permanent allowlisting.
-- Review every dry-run write command before setting `execute=true`.
+- Review every prepared write command before running it manually outside the MCP.
 - Do not add bulk ban, bulk unban, or delete-all tools.
 - Do not add direct access to VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
 - Let agents orchestrate cross-system investigations through separate MCPs.
@@ -261,8 +260,8 @@ If image pull fails with `401 Unauthorized` or `failed to resolve reference`:
 - Confirm the token identity has access to the private package or private repository.
 - Alternatively, make the GHCR package public if unauthenticated pulls are acceptable.
 
-If write actions fail:
+If prepared write commands look wrong:
 
-- Confirm the container has access to `cscli` or a configured `CSCLI_PATH`.
-- Confirm the returned dry-run command is valid for your CrowdSec deployment.
-- Keep write execution disabled until the command is known-good.
+- Confirm `CSCLI_PATH` matches the command path operators expect to run.
+- Confirm the returned potential command is valid for your CrowdSec deployment.
+- Keep actual CrowdSec changes outside the MCP.
