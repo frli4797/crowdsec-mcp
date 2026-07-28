@@ -143,6 +143,59 @@ Execute only after reviewing the dry-run command:
 }
 ```
 
+## Efficient Agent Prompts
+
+Use prompts that name the target, the time window, and the desired decision. Remind the agent that this MCP is CrowdSec-only and that other evidence should come from separate MCPs.
+
+Inspect an IP with a recommendation:
+
+```text
+Inspect 203.0.113.10 in CrowdSec for the last 24h. Show active decisions, recent alerts, scenarios, country/ASN, and timestamps. Recommend ignore, monitor, keep ban, unban, temporary allow, or manual ban. Do not execute any write action.
+```
+
+Investigate an IP across the wider stack:
+
+```text
+Investigate 203.0.113.10 for the last 24h. Use crowdsec-ops-mcp only for CrowdSec decisions and alerts. Use the logs MCP for Snort/AppSec/reverse-proxy evidence, the metrics MCP for remediation health, and the dashboard MCP only for links or annotations. Summarize evidence separately by source and make a final operator recommendation. Do not execute changes.
+```
+
+Review current CrowdSec posture:
+
+```text
+Summarize CrowdSec activity for the last 24h. Include active decision count, recent alert count, top source IPs, top countries/ASNs, top scenarios, and suspicious trends. Keep the answer focused on CrowdSec data only.
+```
+
+Prepare a safe ban:
+
+```text
+Check whether 203.0.113.10 should be manually banned for 4h. First inspect CrowdSec evidence for the last 24h, then produce a dry-run ban command with a clear reason if warranted. Do not set execute=true.
+```
+
+Prepare a temporary allow:
+
+```text
+Inspect 198.51.100.25 in CrowdSec and decide whether a temporary allow is safer than unbanning. If allowlisting is justified, create only a dry-run allow_ip request for 1h with the reason. Do not execute it.
+```
+
+Execute after approval:
+
+```text
+Execute the previously reviewed ban for 203.0.113.10 for 4h with reason "confirmed repeated exploit attempts". Use only the single-IP ban tool. Do not perform any bulk action.
+```
+
+Suggest tuning without applying it:
+
+```text
+Analyze recent CrowdSec alerts from the last 7d and suggest scenario tuning if there is a repeated pattern. Return proposed YAML only, with evidence, risk, expected noise, and recommended simulation period. Do not modify CrowdSec files.
+```
+
+Good prompts usually include:
+
+- a specific IP or window
+- whether writes are allowed
+- whether the answer should stay CrowdSec-only or orchestrate other MCPs
+- the expected output, such as recommendation, dry-run command, or YAML proposal
+
 ## Local Development
 
 Use a virtual environment:
@@ -188,4 +241,3 @@ If write actions fail:
 - Confirm the container has access to `cscli` or a configured `CSCLI_PATH`.
 - Confirm the returned dry-run command is valid for your CrowdSec deployment.
 - Keep write execution disabled until the command is known-good.
-
