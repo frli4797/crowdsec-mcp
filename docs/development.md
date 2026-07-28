@@ -45,7 +45,7 @@ Docker remains the recommended deployment path for the first version. Target env
 
 Image tags:
 
-- `ghcr.io/frli4797/crowdsec-ops-mcp:0.2.0` for an exact release
+- `ghcr.io/frli4797/crowdsec-ops-mcp:0.2.1` for an exact release
 - `ghcr.io/frli4797/crowdsec-ops-mcp:latest` for the latest release
 - `ghcr.io/frli4797/crowdsec-ops-mcp:edge` or `:main` for the latest `main` build
 - `ghcr.io/frli4797/crowdsec-ops-mcp:pr-123` for a same-repository PR preview image

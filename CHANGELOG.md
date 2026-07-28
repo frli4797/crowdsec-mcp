@@ -1,5 +1,18 @@
 # Version History
 
+## v0.2.1 - 2026-07-28
+
+### Changed
+
+- Cached the GitHub Actions Python virtualenv in CI and release validation jobs.
+- Reused the cached build environment with `python -m build --no-isolation`.
+
+### Security And Safety
+
+- Runtime behavior is unchanged.
+- CrowdSec-only boundary is unchanged.
+- Write actions remain single-IP, prepare-only, and audited.
+
 ## v0.2.0 - 2026-07-28
 
 ### Added

@@ -12,9 +12,9 @@ Use semantic versioning:
 
 The tag must match the package version:
 
-- `pyproject.toml`: `project.version = "0.2.0"`
-- `src/crowdsec_ops_mcp/__init__.py`: `__version__ = "0.2.0"`
-- Git tag: `v0.2.0`
+- `pyproject.toml`: `project.version = "0.2.1"`
+- `src/crowdsec_ops_mcp/__init__.py`: `__version__ = "0.2.1"`
+- Git tag: `v0.2.1`
 
 ## Release Steps
 
@@ -25,15 +25,15 @@ The tag must match the package version:
 5. Create and push a signed or annotated tag:
 
 ```bash
-git tag -a v0.2.0 -m "v0.2.0"
-git push origin v0.2.0
+git tag -a v0.2.1 -m "v0.2.1"
+git push origin v0.2.1
 ```
 
 GitHub Actions will:
 
 - verify the tag matches the package version
 - run tests
-- build the Python package
+- build the Python package without isolated build-environment reinstall when dependencies are already cached
 - build and push the Docker image to GHCR
 - create a GitHub release with generated notes
 

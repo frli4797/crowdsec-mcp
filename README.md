@@ -62,7 +62,7 @@ See [docs/decision-inventory-example.md](docs/decision-inventory-example.md) for
 - [docs/agent-usage.md](docs/agent-usage.md): agent prompt patterns and investigation guidance
 - [docs/development.md](docs/development.md): local development workflow
 - [docs/roadmap.md](docs/roadmap.md): project roadmap
-- [docs/release-notes/v0.2.0.md](docs/release-notes/v0.2.0.md): release notes for `v0.2.0`
+- [docs/release-notes/v0.2.1.md](docs/release-notes/v0.2.1.md): release notes for `v0.2.1`
 - [docs/RELEASE.md](docs/RELEASE.md): release process
 - [docs/pull-request-rules.md](docs/pull-request-rules.md): pull request rules
 - [docs/release-notes-template.md](docs/release-notes-template.md): release notes template
