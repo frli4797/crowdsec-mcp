@@ -11,6 +11,9 @@ permissions:
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/crowdsec-ops-mcp
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: advice.defaultBranchName
+  GIT_CONFIG_VALUE_0: "false"
 
 jobs:
   validate:

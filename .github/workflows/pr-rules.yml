@@ -8,6 +8,11 @@ permissions:
   contents: read
   pull-requests: read
 
+env:
+  GIT_CONFIG_COUNT: "1"
+  GIT_CONFIG_KEY_0: advice.defaultBranchName
+  GIT_CONFIG_VALUE_0: "false"
+
 jobs:
   validate-pr:
     runs-on: ubuntu-latest
@@ -21,4 +26,3 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: python scripts/validate_pr_metadata.py
-
