@@ -11,6 +11,7 @@ class Config:
     cscli_path: str
     default_window: str
     write_execute_default: bool
+    log_level: str = "INFO"
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -20,4 +21,5 @@ class Config:
             cscli_path=os.getenv("CSCLI_PATH", "cscli"),
             default_window=os.getenv("DEFAULT_WINDOW", "24h"),
             write_execute_default=os.getenv("WRITE_EXECUTE_DEFAULT", "false").lower() == "true",
+            log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
         )

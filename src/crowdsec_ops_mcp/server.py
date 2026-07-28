@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import sys
 
 import anyio
 from mcp.server.lowlevel import Server
@@ -9,8 +11,11 @@ from mcp import types
 
 from .analysis import SecurityOps
 from .config import Config
+from . import __version__
 
-ops = SecurityOps(Config.from_env())
+CONFIG = Config.from_env()
+ops = SecurityOps(CONFIG)
+logger = logging.getLogger(__name__)
 
 
 def _schema(properties: dict, required: list[str] | None = None) -> dict:
@@ -122,6 +127,7 @@ async def ban_ip(ip: str, duration: str | None = "4h", reason: str = "manual ope
 
 
 async def list_tools(_ctx: object, _params: types.PaginatedRequestParams | None) -> types.ListToolsResult:
+    logger.debug("Client requested tool list")
     return types.ListToolsResult(tools=TOOL_DEFS)
 
 
@@ -139,27 +145,54 @@ async def call_tool(_ctx: object, params: types.CallToolRequestParams) -> types.
         "ban_ip": ban_ip,
     }
     name = params.name
+    logger.debug("Client called tool: name=%s args=%s", name, args)
     if name not in handlers:
+        logger.debug("Client called unknown tool: name=%s", name)
         raise ValueError(f"Unknown tool: {name}")
     result = await handlers[name](**args)
+    logger.debug("Tool completed: name=%s result_type=%s", name, type(result).__name__)
     return types.CallToolResult(content=[types.TextContent(type="text", text=json.dumps(result, indent=2, sort_keys=True))])
 
 
 server: Server[dict[str, object]] = Server(
     "crowdsec-ops-mcp",
-    version="0.1.1",
+    version=__version__,
     description="CrowdSec-only MCP server for decisions, alerts, and scoped IP actions.",
     on_list_tools=list_tools,
     on_call_tool=call_tool,
 )
 
 
+def _configure_logging(config: Config) -> None:
+    level = getattr(logging, config.log_level, logging.INFO)
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        stream=sys.stderr,
+    )
+
+
+def _capability_names() -> list[str]:
+    return [tool.name for tool in TOOL_DEFS]
+
+
 async def _main_async() -> None:
+    logger.info(
+        "Starting crowdsec-ops-mcp: version=%s transport=stdio mode=%s default_window=%s write_execute_default=%s",
+        __version__,
+        ops.crowdsec.mode,
+        CONFIG.default_window,
+        CONFIG.write_execute_default,
+    )
+    logger.info("MCP capabilities: tools=%s", ", ".join(_capability_names()))
+    await ops.crowdsec.check_lapi()
     async with stdio_server() as (read_stream, write_stream):
+        logger.info("crowdsec-ops-mcp is listening: transport=stdio")
         await server.run(read_stream, write_stream, server.create_initialization_options())
 
 
 def main() -> None:
+    _configure_logging(CONFIG)
     anyio.run(_main_async)
 
 
