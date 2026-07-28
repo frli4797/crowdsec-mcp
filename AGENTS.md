@@ -45,9 +45,74 @@ For broader security investigations, agents should orchestrate this MCP alongsid
 - Follow existing patterns in `src/crowdsec_ops_mcp`.
 - Add or update tests when behavior, schemas, parsing, recommendations, or tool outputs change.
 - Run `.venv/bin/pytest` before committing when the virtualenv is available.
-- Keep user-facing docs in `README.md` and `ONBOARDING.md`.
-- Keep agent instructions here and prompt examples in `docs/agent-usage.md`.
-- Keep contributor workflow details in `docs/development.md`, `docs/RELEASE.md`, and `docs/pull-request-rules.md`.
+
+## Documentation Structure
+
+Keep documentation organized by audience and purpose. When adding or moving information, choose the narrowest document that matches the reader's goal.
+
+Use `README.md` as the user-facing front door:
+
+- short project description
+- what the MCP can do
+- safety headline for prepared write actions
+- tool list
+- configuration variable summary
+- links to deeper user docs
+
+Do not put local development workflow, release process, PR rules, agent instructions, long architecture notes, or prompt examples in `README.md`.
+
+Use `ONBOARDING.md` for user installation and first use:
+
+- prerequisites
+- recommended deployment
+- MCP client configuration
+- first tool calls
+- user-facing safety checklist
+- troubleshooting
+
+Do not put contributor workflow, CI details, release mechanics, or agent prompt strategy in `ONBOARDING.md`.
+
+Use `AGENTS.md` for durable repo-level instructions to coding agents:
+
+- project mission and boundaries
+- safety rules for implementation work
+- development workflow expectations
+- documentation placement rules
+- git behavior
+
+Keep `AGENTS.md` concise and directive. Avoid duplicating long examples from other docs.
+
+Use `docs/agent-usage.md` for agent runtime guidance:
+
+- prompt patterns
+- evidence handling
+- cross-system investigation guidance
+- expected agent output shape
+
+Use `docs/development.md` for contributor and local development workflow:
+
+- worktree bootstrap
+- virtualenv or `uv` setup
+- local test commands
+- local image and development tag notes
+
+Use `docs/roadmap.md` for project direction:
+
+- future read-side tool ideas
+- write-operation planning
+- shared reliability and output-contract work
+- implementation order and status notes
+
+Use `docs/RELEASE.md`, `docs/release-notes-template.md`, and `docs/pull-request-rules.md` only for release and contribution process details:
+
+- versioning
+- release steps
+- image publishing behavior
+- rollback notes
+- PR expectations
+- release-note structure
+
+When documentation overlaps, prefer linking over copying. If the same content appears in multiple docs, keep the user-facing version brief and move detailed operational guidance to the specialized doc.
 
 ## Git Rules
 
