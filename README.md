@@ -4,6 +4,8 @@ Local MCP server for CrowdSec operations.
 
 This MCP is intentionally CrowdSec-only. It does not connect to VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker. Agents are the orchestrators: they combine this MCP's CrowdSec state with evidence from separate metrics, logs, and dashboard MCPs when a wider investigation needs it.
 
+See [ONBOARDING.md](ONBOARDING.md) for installation, deployment, client configuration, and first-use instructions.
+
 ## Tools
 
 - `inspect_ip(ip, window?)`
