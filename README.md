@@ -19,7 +19,7 @@ Write tools do not execute CrowdSec changes. They validate a single IP, prepare 
 
 See [ONBOARDING.md](ONBOARDING.md) for installation, deployment, MCP client configuration, first tool calls, safety notes, and troubleshooting.
 
-See [docs/decision-inventory-example.md](docs/decision-inventory-example.md) for example `decision_inventory` tool calls and an operator prompt.
+See [docs/decision-inventory-example.md](docs/decision-inventory-example.md) for example `decision_inventory` tool calls.
 
 ## Tools
 
