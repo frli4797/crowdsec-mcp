@@ -62,6 +62,20 @@ Use `crowdsec_health` when empty or incomplete results need explanation. It repo
 
 ## Local Development
 
+Bootstrap a fresh worktree:
+
+```bash
+./scripts/bootstrap_worktree.sh
+```
+
+The bootstrap creates `docker-compose.yaml`, `.env`, and `.venv`, then installs development dependencies. For Git worktrees, it copies `docker-compose.yaml` or `docker-compose.yml` and `.env` from the main checkout when those files exist, so local Compose settings and secrets follow the worktree without being committed.
+
+To copy from a specific source checkout:
+
+```bash
+MAIN_WORKTREE_DIR=/path/to/crowdsec-mcp ./scripts/bootstrap_worktree.sh
+```
+
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate

@@ -207,6 +207,20 @@ Good prompts usually include:
 
 ## Local Development
 
+Bootstrap a fresh worktree with local runtime files:
+
+```bash
+./scripts/bootstrap_worktree.sh
+```
+
+This creates `docker-compose.yaml`, `.env`, and `.venv`, then installs the package with development dependencies. For Git worktrees, it copies `docker-compose.yaml` or `docker-compose.yml` and `.env` from the main checkout when those files exist, so local Compose settings and secrets follow the worktree without being committed. Existing files are left in place.
+
+To copy from a specific source checkout:
+
+```bash
+MAIN_WORKTREE_DIR=/path/to/crowdsec-mcp ./scripts/bootstrap_worktree.sh
+```
+
 Use a virtual environment:
 
 ```bash
