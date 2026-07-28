@@ -1,29 +1,56 @@
 # Agent Usage
 
-This guide contains prompt patterns for agents that use `crowdsec-ops-mcp`.
+This guide contains prompt and investigation patterns for agents using `crowdsec-ops-mcp`.
 
-## Boundaries
+## Core Practice
 
-Use `crowdsec-ops-mcp` only for CrowdSec decisions, alerts, summaries, health, scenario proposals, and prepared single-IP action commands.
+Use this MCP for CrowdSec evidence only. When a question needs logs, metrics, dashboards, IDS output, or reverse-proxy context, use separate tools for those sources and label the evidence clearly.
 
-For wider investigations, combine this MCP with separate tools for logs, metrics, and dashboards. Keep evidence separated by source so the final recommendation is auditable.
+Good agent output should:
 
-Do not ask this MCP to access:
+- name the time window
+- separate facts from recommendations
+- identify which source produced each fact
+- state uncertainty when evidence is missing
+- avoid claiming a CrowdSec action was executed
+- return prepared commands only when explicitly requested or clearly warranted by the prompt
 
-- VictoriaMetrics
-- VictoriaLogs
-- Grafana
-- Snort directly
-- reverse proxy logs
-- the Docker socket
+## Evidence Handling
+
+For IP investigations, collect and report:
+
+- active CrowdSec decisions
+- recent CrowdSec alerts
+- scenarios
+- first and last alert timestamps
+- country and ASN evidence when available
+- current recommendation and rationale
+
+For posture reviews, collect and report:
+
+- active decision count
+- recent alert count
+- top source IPs
+- top countries and ASNs
+- top CrowdSec scenarios
+- suspicious trends
+
+For scenario proposals, include:
+
+- observed pattern
+- supporting counts
+- proposed YAML
+- expected noise
+- risk and false-positive notes
+- simulation period
 
 ## Prompt Patterns
 
 Good prompts usually include:
 
-- a specific IP or window
+- a specific IP or lookback window
 - whether write proposals are wanted
-- whether the answer should stay CrowdSec-only or orchestrate other MCPs
+- whether the answer should stay CrowdSec-only or use other tools
 - the expected output, such as recommendation, potential command, or YAML proposal
 
 Inspect an IP with a recommendation:
