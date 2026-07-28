@@ -57,6 +57,17 @@ Prefer the exact version tag in production.
 
 Example compose deployments should use the published image instead of `build: .` so target hosts do not need the source tree or build toolchain.
 
+Main branch pushes publish moving development tags:
+
+- `ghcr.io/<owner>/crowdsec-ops-mcp:edge`
+- `ghcr.io/<owner>/crowdsec-ops-mcp:main`
+
+Same-repository non-Dependabot pull requests publish preview images:
+
+- `ghcr.io/<owner>/crowdsec-ops-mcp:pr-123`
+
+Docker tags cannot contain `/` or `#`, so use `:edge`, `:main`, and `:pr-123` rather than `:main/edge` or `:PR#123`.
+
 ## Rollback
 
 Redeploy the previous known-good image tag. Avoid deleting release tags unless the release exposed credentials or contains a severe publishing mistake.

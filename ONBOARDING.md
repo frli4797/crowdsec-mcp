@@ -220,6 +220,15 @@ uv run crowdsec-ops-mcp
 
 Docker remains the recommended deployment path for the first version. Target environments should pull the published GHCR image; local image builds are for development and CI validation.
 
+Image tags:
+
+- `ghcr.io/frli4797/crowdsec-ops-mcp:0.1.0` for an exact release
+- `ghcr.io/frli4797/crowdsec-ops-mcp:latest` for the latest release
+- `ghcr.io/frli4797/crowdsec-ops-mcp:edge` or `:main` for the latest `main` build
+- `ghcr.io/frli4797/crowdsec-ops-mcp:pr-123` for a same-repository PR preview image
+
+Docker tags cannot contain `/` or `#`, so use `:edge`, `:main`, and `:pr-123`.
+
 ## Safety Checklist
 
 - Keep `WRITE_EXECUTE_DEFAULT=false`.
