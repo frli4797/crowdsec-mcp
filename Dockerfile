@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \
@@ -7,8 +9,8 @@ WORKDIR /app
 COPY pyproject.toml README.md /app/
 COPY src /app/src
 
-RUN pip install --no-cache-dir .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install .
 
 USER nobody
 ENTRYPOINT ["crowdsec-ops-mcp"]
-
