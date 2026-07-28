@@ -51,8 +51,11 @@ Environment variables:
 | `CSCLI_PATH` | Path to `cscli`, defaults to `cscli` |
 | `DEFAULT_WINDOW` | Default lookback window, defaults to `24h` |
 | `WRITE_EXECUTE_DEFAULT` | Keep `false` unless you really want write tools to execute by default |
+| `LOG_LEVEL` | Python log level, defaults to `INFO`; use `DEBUG` to echo MCP client tool activity |
 
 Write actions currently use `cscli` so they can rely on the local CrowdSec operator interface and avoid expanding LAPI permissions too early.
+
+Logs are written to stderr so stdio transport messages on stdout stay valid. Startup logs include version, transport, backend mode, and exposed tool capabilities. LAPI reachability failures are logged at `ERROR`.
 
 ## Local Development
 
