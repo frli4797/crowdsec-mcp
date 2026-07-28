@@ -13,9 +13,8 @@ Every PR must keep the project boundary clear: this MCP only accesses CrowdSec.
 
 - Use the pull request template.
 - Set a PR type: Feature, Fix, Chore, Docs, CI/CD, or Release.
-- Include release-note text for user-visible changes.
-- State whether the change affects the MCP tool contract.
-- State whether the change affects write-action behavior.
+- Include release-note text when the change is user-visible.
+- Include a Safety section when the change affects the MCP tool contract, credentials, network access, deployment permissions, or write-action behavior.
 - Dependabot dependency PRs are exempt from the manual PR template requirement.
 
 ## Safety Rules
