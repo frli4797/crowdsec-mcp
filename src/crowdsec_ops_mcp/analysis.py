@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import UTC, datetime, timedelta
+import logging
 from typing import Any
 
 from .clients import CrowdSecClient
 from .config import Config
 from .models import CrowdSecAlert, Decision, Recommendation
+
+logger = logging.getLogger(__name__)
 
 
 class SecurityOps:
@@ -74,6 +77,22 @@ class SecurityOps:
     async def suggest_scenario(self, window: str | None = None) -> dict[str, Any]:
         alerts = await self.crowdsec.alerts(window=window)
         return scenario_suggestion(alerts, window or self.config.default_window)
+
+    async def crowdsec_health(self, capabilities: list[str], include_sample_counts: bool = False) -> dict[str, Any]:
+        logger.info(
+            "Building CrowdSec health report: mode=%s include_sample_counts=%s",
+            self.crowdsec.mode,
+            include_sample_counts,
+        )
+        health = await self.crowdsec.health(capabilities, include_sample_counts)
+        logger.info(
+            "Built CrowdSec health report: mode=%s lapi_reachable=%s cscli_available=%s capabilities=%d",
+            health["backend_mode"],
+            health["lapi"]["reachable"],
+            health["cscli"]["available"],
+            len(capabilities),
+        )
+        return health
 
     async def write_action(
         self,

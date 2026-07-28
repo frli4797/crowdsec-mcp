@@ -1,6 +1,8 @@
+import logging
 from datetime import UTC, datetime
 
-from crowdsec_ops_mcp.analysis import decision_inventory, recommend, scenario_suggestion, summarize_ip, suspicious_trends, top_source_ips
+from crowdsec_ops_mcp.analysis import SecurityOps, decision_inventory, recommend, scenario_suggestion, summarize_ip, suspicious_trends, top_source_ips
+from crowdsec_ops_mcp.config import Config
 from crowdsec_ops_mcp.models import CrowdSecAlert, Decision
 
 
@@ -122,3 +124,23 @@ def test_suspicious_trends_flags_decision_gap():
     trends = suspicious_trends([], [CrowdSecAlert(scenario="crowdsecurity/http-probing")])
 
     assert any("no active CrowdSec decisions" in trend for trend in trends)
+
+
+async def test_crowdsec_health_logs_analysis_lifecycle(tmp_path, monkeypatch, caplog):
+    ops = SecurityOps(
+        Config(
+            crowdsec_lapi_url=None,
+            crowdsec_lapi_key=None,
+            cscli_path="cscli-test",
+            default_window="24h",
+            write_audit_log_path=str(tmp_path / "audit.jsonl"),
+        )
+    )
+    monkeypatch.setattr("crowdsec_ops_mcp.clients.shutil.which", lambda path: "/usr/bin/cscli-test")
+
+    caplog.set_level(logging.INFO, logger="crowdsec_ops_mcp.analysis")
+    result = await ops.crowdsec_health(["crowdsec_health", "inspect_ip"], include_sample_counts=False)
+
+    assert result["backend_mode"] == "cscli"
+    assert "Building CrowdSec health report: mode=cscli include_sample_counts=False" in caplog.text
+    assert "Built CrowdSec health report: mode=cscli lapi_reachable=None cscli_available=True capabilities=2" in caplog.text
