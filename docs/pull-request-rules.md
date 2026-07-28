@@ -8,14 +8,18 @@ Every PR must keep the project boundary clear: this MCP only accesses CrowdSec.
 - Tests must pass.
 - Python package build must pass.
 - Docker build must pass when container files or dependencies change.
+- Agentic review is optional and advisory; it must not be configured as a required check.
 
 ## Required PR Content
 
+- Link an issue for non-trivial changes. The issue may be opened by the contributor.
 - Use the pull request template.
 - Set a PR type: Feature, Fix, Chore, Docs, CI/CD, or Release.
 - Include release-note text when the change is user-visible.
 - Include a Safety section when the change affects the MCP tool contract, credentials, network access, deployment permissions, or write-action behavior.
 - Dependabot dependency PRs are exempt from the manual PR template requirement.
+
+Small docs fixes, typo fixes, dependency updates, and obvious CI maintenance do not need a prior issue.
 
 ## Safety Rules
 
@@ -37,3 +41,5 @@ Use labels that feed generated release notes:
 - `dependencies`
 - `breaking-change`
 - `ignore-for-release`
+
+Use `agentic-review` only when an advisory model review is wanted for a PR. The workflow skips without that label, and it also skips if `OPENAI_API_KEY` is not configured.
