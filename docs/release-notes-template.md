@@ -19,7 +19,7 @@ Short operator-focused summary of what changed.
 ## Security And Safety
 
 - Confirm whether the CrowdSec-only boundary changed.
-- Confirm whether write actions remain single-IP and dry-run by default.
+- Confirm whether write actions remain single-IP and prepare-only, with no MCP-executed CrowdSec mutations.
 
 ## Upgrade Notes
 
@@ -30,4 +30,3 @@ Short operator-focused summary of what changed.
 - `python -m pytest`
 - `python -m build`
 - Docker image build
-

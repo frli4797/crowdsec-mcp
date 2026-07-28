@@ -10,7 +10,7 @@ class Config:
     crowdsec_lapi_key: str | None
     cscli_path: str
     default_window: str
-    write_execute_default: bool
+    write_audit_log_path: str
     log_level: str = "INFO"
 
     @classmethod
@@ -20,6 +20,6 @@ class Config:
             crowdsec_lapi_key=os.getenv("CROWDSEC_LAPI_KEY"),
             cscli_path=os.getenv("CSCLI_PATH", "cscli"),
             default_window=os.getenv("DEFAULT_WINDOW", "24h"),
-            write_execute_default=os.getenv("WRITE_EXECUTE_DEFAULT", "false").lower() == "true",
+            write_audit_log_path=os.getenv("WRITE_AUDIT_LOG_PATH", "crowdsec-write-audit.jsonl"),
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
         )

@@ -27,7 +27,7 @@ This server owns one responsibility: expose CrowdSec state and tightly scoped Cr
 It may access:
 
 - CrowdSec LAPI for read-only decision data
-- `cscli` for alert reads and explicit single-IP write actions
+- `cscli` for alert reads and potential single-IP write command generation
 
 It must not access:
 
@@ -50,10 +50,10 @@ Environment variables:
 | `CROWDSEC_LAPI_KEY` | CrowdSec LAPI key for decision reads |
 | `CSCLI_PATH` | Path to `cscli`, defaults to `cscli` |
 | `DEFAULT_WINDOW` | Default lookback window, defaults to `24h` |
-| `WRITE_EXECUTE_DEFAULT` | Keep `false` unless you really want write tools to execute by default |
+| `WRITE_AUDIT_LOG_PATH` | JSON Lines audit trail for prepared write intents, defaults to `crowdsec-write-audit.jsonl` |
 | `LOG_LEVEL` | Python log level, defaults to `INFO`; use `DEBUG` to echo MCP client tool activity |
 
-Write actions currently use `cscli` so they can rely on the local CrowdSec operator interface and avoid expanding LAPI permissions too early.
+Write tools do not execute CrowdSec changes. They validate a single IP, prepare a plausible `cscli` command for an operator to review, and append the prepared intent to the JSON Lines audit log.
 
 Logs are written to stderr so stdio transport messages on stdout stay valid. Startup logs include version, transport, backend mode, and exposed tool capabilities. LAPI reachability failures are logged at `ERROR`.
 
@@ -79,7 +79,7 @@ docker compose -f docker-compose.example.yml pull
 docker compose -f docker-compose.example.yml up -d
 ```
 
-Docker is the first supported deployment model. Run it on the same Docker network as CrowdSec, or on a host that can reach CrowdSec LAPI and run a narrowly scoped `cscli` wrapper for writes.
+Docker is the first supported deployment model. Run it on the same Docker network as CrowdSec, or on a host that can reach CrowdSec LAPI. Write tools only prepare potential `cscli` commands for manual operator review.
 
 The example compose file only accepts CrowdSec-related configuration. Mounting the Docker socket is deliberately avoided.
 
@@ -99,13 +99,14 @@ echo "<github-token-with-read-packages>" | docker login ghcr.io -u "<github-user
 {"tool": "ban_ip", "arguments": {"ip": "203.0.113.10", "duration": "4h", "reason": "confirmed repeated exploit attempts"}}
 ```
 
-The second call returns a dry-run summary. Add `"execute": true` to run it.
+The second call returns a prepared, audited `potential_cscli_command`. The MCP does not run it, even if `"execute": true` is sent.
 
 ## Safety Model
 
 - Read-only CrowdSec tools are the default workflow.
-- Write tools only operate on a single IP.
+- Write tools only prepare potential commands for a single IP.
+- Write tools never execute `cscli` write actions.
 - No bulk ban, bulk unban, or delete-all operation is exposed.
 - Parser, scenario, and profile changes are generated only as proposals.
 - Temporary allowlisting is preferred over permanent allowlisting.
-- Executed write actions return the command, return code, stdout, and stderr so the calling agent can audit or annotate through other systems if appropriate.
+- Prepared write intents are appended to the JSON Lines audit log and returned to the caller with `executed=false`.

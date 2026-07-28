@@ -56,8 +56,7 @@ class SecurityOps:
         reason: str,
         execute: bool | None,
     ) -> dict[str, Any]:
-        should_execute = self.config.write_execute_default if execute is None else execute
-        return await self.crowdsec.write_decision(action, ip, duration, reason, should_execute)
+        return await self.crowdsec.write_decision(action, ip, duration, reason, bool(execute))
 
 
 def summarize_ip(decisions: list[Decision], alerts: list[CrowdSecAlert]) -> dict[str, Any]:
