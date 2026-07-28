@@ -48,6 +48,8 @@ Fix and test the existing `cscli` JSON execution path before adding more tools:
 
 ### 2. Add a CrowdSec Health Tool
 
+Status: implemented as `crowdsec_health(include_sample_counts=false)`.
+
 Add a read-only `crowdsec_health` tool that helps operators understand why results may be empty or incomplete.
 
 Useful fields:

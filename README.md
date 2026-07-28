@@ -10,6 +10,7 @@ See [docs/RELEASE.md](docs/RELEASE.md) and [docs/pull-request-rules.md](docs/pul
 
 ## Tools
 
+- `crowdsec_health(include_sample_counts=false)`
 - `inspect_ip(ip, window?)`
 - `security_summary(window?)`
 - `top_offenders(window?)`
@@ -57,6 +58,8 @@ Write tools do not execute CrowdSec changes. They validate a single IP, prepare 
 
 Logs are written to stderr so stdio transport messages on stdout stay valid. Startup logs include version, transport, backend mode, and exposed tool capabilities. LAPI reachability failures are logged at `ERROR`.
 
+Use `crowdsec_health` when empty or incomplete results need explanation. It reports the selected backend mode, LAPI URL/key presence and reachability without exposing API keys or embedded URL credentials, `cscli` path availability, default lookback window, write audit log path, and exposed MCP tool capabilities. Set `include_sample_counts=true` to also fetch small decision and alert counts.
+
 ## Local Development
 
 ```bash
@@ -93,6 +96,10 @@ echo "<github-token-with-read-packages>" | docker login ghcr.io -u "<github-user
 
 ```json
 {"tool": "inspect_ip", "arguments": {"ip": "203.0.113.10", "window": "24h"}}
+```
+
+```json
+{"tool": "crowdsec_health", "arguments": {"include_sample_counts": true}}
 ```
 
 ```json

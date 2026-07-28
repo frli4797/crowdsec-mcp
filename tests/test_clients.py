@@ -1,7 +1,8 @@
 import json
+import logging
 import pytest
 
-from crowdsec_ops_mcp.clients import CrowdSecClient, _alert_from_cscli, _decision_from_cscli, _decision_from_lapi
+from crowdsec_ops_mcp.clients import CrowdSecClient, _alert_from_cscli, _decision_from_cscli, _decision_from_lapi, _redact_url
 from crowdsec_ops_mcp.config import Config
 
 
@@ -64,6 +65,83 @@ def test_decision_from_lapi_common_fields():
     assert decision.ip == "203.0.113.10"
     assert decision.action == "ban"
     assert decision.origin == "cscli"
+
+
+def test_redact_url_removes_embedded_credentials():
+    assert _redact_url("http://user:secret@crowdsec:8080/api") == "http://crowdsec:8080/api"
+    assert _redact_url("http://crowdsec:8080/api") == "http://crowdsec:8080/api"
+    assert _redact_url(None) is None
+
+
+async def test_health_reports_cscli_mode_without_samples(tmp_path, monkeypatch, caplog):
+    audit_log = tmp_path / "audit.jsonl"
+    client = CrowdSecClient(_config(audit_log))
+    monkeypatch.setattr("crowdsec_ops_mcp.clients.shutil.which", lambda path: "/usr/bin/cscli-test")
+
+    caplog.set_level(logging.INFO, logger="crowdsec_ops_mcp.clients")
+    result = await client.health(["crowdsec_health", "inspect_ip"], include_sample_counts=False)
+
+    assert result["backend_mode"] == "cscli"
+    assert result["lapi"] == {
+        "url_present": False,
+        "api_key_present": False,
+        "configured": False,
+        "url": None,
+        "reachable": None,
+        "status_code": None,
+        "error": None,
+    }
+    assert result["cscli"]["path"] == "cscli-test"
+    assert result["cscli"]["available"] is True
+    assert result["cscli"]["resolved_path"] == "/usr/bin/cscli-test"
+    assert result["cscli"]["relevant"] is True
+    assert result["default_window"] == "24h"
+    assert result["write_audit_log_path"] == str(audit_log)
+    assert result["exposed_tool_capabilities"] == ["crowdsec_health", "inspect_ip"]
+    assert result["sample_counts"] is None
+    assert "Checking CrowdSec backend health: mode=cscli include_sample_counts=False" in caplog.text
+    assert "CrowdSec LAPI health skipped: url_present=False api_key_present=False" in caplog.text
+    assert "CrowdSec cscli health checked: path=cscli-test available=True relevant=True" in caplog.text
+    assert "CrowdSec backend health checked: mode=cscli lapi_configured=False lapi_reachable=None cscli_available=True" in caplog.text
+
+
+async def test_health_sample_counts_are_optional_and_error_tolerant(tmp_path, monkeypatch, caplog):
+    client = CrowdSecClient(_config(tmp_path / "audit.jsonl"))
+    monkeypatch.setattr("crowdsec_ops_mcp.clients.shutil.which", lambda path: None)
+
+    caplog.set_level(logging.INFO, logger="crowdsec_ops_mcp.clients")
+    result = await client.health(["crowdsec_health"], include_sample_counts=True)
+
+    assert result["cscli"]["available"] is False
+    assert result["sample_counts"]["window"] == "24h"
+    assert result["sample_counts"]["decisions"]["count"] is None
+    assert result["sample_counts"]["decisions"]["error"] == "FileNotFoundError"
+    assert result["sample_counts"]["alerts"]["count"] == 0
+    assert result["sample_counts"]["alerts"]["error"] is None
+    assert "CrowdSec health decision sample count failed: error=FileNotFoundError" in caplog.text
+    assert "CrowdSec health sample counts checked: decisions=None alerts=0" in caplog.text
+
+
+async def test_health_lapi_failure_logs_sanitized_url(tmp_path, respx_mock, caplog):
+    client = CrowdSecClient(
+        Config(
+            crowdsec_lapi_url="http://machine:secret@crowdsec:8080",
+            crowdsec_lapi_key="lapi-secret",
+            cscli_path="cscli-test",
+            default_window="24h",
+            write_audit_log_path=str(tmp_path / "audit.jsonl"),
+        )
+    )
+    respx_mock.get("http://crowdsec:8080/v1/decisions").respond(503, json={"message": "unavailable"})
+
+    caplog.set_level(logging.INFO, logger="crowdsec_ops_mcp.clients")
+    result = await client.health(["crowdsec_health"], include_sample_counts=False)
+
+    assert result["lapi"]["url"] == "http://crowdsec:8080"
+    assert result["lapi"]["reachable"] is False
+    assert "CrowdSec LAPI health check failed: url=http://crowdsec:8080 error=HTTPStatusError" in caplog.text
+    assert "machine:secret" not in caplog.text
+    assert "lapi-secret" not in caplog.text
 
 
 async def test_write_decision_prepares_ban_command_and_audits(tmp_path):
