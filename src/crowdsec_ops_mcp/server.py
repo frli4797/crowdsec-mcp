@@ -29,8 +29,18 @@ EXECUTE = {
     "default": False,
     "description": "Legacy no-op flag. The MCP never executes writes; it only prepares an audited potential cscli command.",
 }
+INCLUDE_SAMPLE_COUNTS = {
+    "type": "boolean",
+    "default": False,
+    "description": "Also fetch tiny decision and alert sample counts. This may touch CrowdSec backends.",
+}
 
 TOOL_DEFS = [
+    types.Tool(
+        name="crowdsec_health",
+        description="Report read-only CrowdSec MCP backend health, configuration presence, and exposed capabilities without exposing secrets.",
+        inputSchema=_schema({"include_sample_counts": INCLUDE_SAMPLE_COUNTS}),
+    ),
     types.Tool(
         name="inspect_ip",
         description="Inspect CrowdSec decisions and CrowdSec alerts for one IP.",
@@ -115,6 +125,11 @@ async def suggest_scenario(window: str | None = None) -> dict:
     return await ops.suggest_scenario(window)
 
 
+async def crowdsec_health(include_sample_counts: bool | None = False) -> dict:
+    """Report read-only CrowdSec MCP backend health without exposing secrets."""
+    return await ops.crowdsec_health(_capability_names(), bool(include_sample_counts))
+
+
 async def unban_ip(ip: str, reason: str | None = None, execute: bool | None = None) -> dict:
     """Prepare an audited potential cscli command to delete a CrowdSec decision for one IP."""
     return await ops.write_action("unban", ip, None, reason or "operator unban via MCP", execute)
@@ -148,6 +163,7 @@ async def list_tools(_ctx: object, _params: types.PaginatedRequestParams | None)
 async def call_tool(_ctx: object, params: types.CallToolRequestParams) -> types.CallToolResult:
     args = params.arguments or {}
     handlers = {
+        "crowdsec_health": crowdsec_health,
         "inspect_ip": inspect_ip,
         "security_summary": security_summary,
         "top_offenders": top_offenders,
