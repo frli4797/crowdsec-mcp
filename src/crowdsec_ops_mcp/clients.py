@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 import ipaddress
 import json
 import logging
 from pathlib import Path
 import shlex
+import subprocess
 from typing import Any
 
 import httpx
@@ -16,6 +18,7 @@ from .models import CrowdSecAlert, Decision
 logger = logging.getLogger(__name__)
 
 WRITE_ACTIONS = {"ban", "unban", "whitelist"}
+EXECUTABLE_WRITE_ACTIONS = {"ban", "unban"}
 
 
 class CrowdSecClient:
@@ -118,11 +121,29 @@ class CrowdSecClient:
             "duration": duration,
             "reason": reason,
             "status": "prepared",
-            "note": "This MCP does not execute CrowdSec write actions. Review and run the potential cscli command manually if appropriate.",
+            "note": _write_note(action, execute),
         }
-        self._audit_write(summary)
-        logger.info("Prepared CrowdSec write intent without execution: action=%s ip=%s", action, ip)
+        if not execute or action not in EXECUTABLE_WRITE_ACTIONS:
+            self._audit_write(summary)
+            logger.info("Prepared CrowdSec write intent without execution: action=%s ip=%s", action, ip)
+            logger.debug("Prepared potential CrowdSec decision command: command=%s", command)
+            return summary
+
+        self._audit_write({**summary, "status": "execute-requested"})
+        logger.info("Executing CrowdSec write action: action=%s ip=%s", action, ip)
         logger.debug("Prepared potential CrowdSec decision command: command=%s", command)
+        proc = await asyncio.to_thread(subprocess.run, command, text=True, capture_output=True, check=False)
+        summary.update(
+            {
+                "executed": proc.returncode == 0,
+                "status": "executed" if proc.returncode == 0 else "failed",
+                "returncode": proc.returncode,
+                "stdout": proc.stdout,
+                "stderr": proc.stderr,
+            }
+        )
+        self._audit_write(summary)
+        logger.info("Completed CrowdSec write action: action=%s ip=%s status=%s", action, ip, summary["status"])
         return summary
 
     def _audit_write(self, entry: dict[str, Any]) -> None:
@@ -150,6 +171,14 @@ def _validate_ip(ip: str) -> str:
         return str(ipaddress.ip_address(ip))
     except ValueError as exc:
         raise ValueError(f"Invalid IP address for CrowdSec write action: {ip}") from exc
+
+
+def _write_note(action: str, execute: bool) -> str:
+    if execute and action in EXECUTABLE_WRITE_ACTIONS:
+        return "This MCP executed the single-IP CrowdSec write action with cscli and appended request/result audit records."
+    if execute:
+        return "This MCP does not execute this CrowdSec write action yet. Review and run the potential cscli command manually if appropriate."
+    return "This MCP prepared a potential cscli command without execution. Set execute=true only when a single-IP ban or unban should be applied."
 
 
 def _decision_from_lapi(item: dict[str, Any]) -> Decision:

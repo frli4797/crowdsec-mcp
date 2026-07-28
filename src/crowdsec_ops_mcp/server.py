@@ -27,7 +27,12 @@ IP = {"type": "string", "description": "IPv4 or IPv6 address to inspect or opera
 EXECUTE = {
     "type": "boolean",
     "default": False,
-    "description": "Legacy no-op flag. The MCP never executes writes; it only prepares an audited potential cscli command.",
+    "description": "Run supported single-IP write actions when true. False prepares and audits the potential cscli command only.",
+}
+PREPARE_ONLY_EXECUTE = {
+    "type": "boolean",
+    "default": False,
+    "description": "Accepted for compatibility, but this tool is prepare-only and does not execute writes.",
 }
 
 TOOL_DEFS = [
@@ -63,20 +68,20 @@ TOOL_DEFS = [
     ),
     types.Tool(
         name="unban_ip",
-        description="Prepare and audit a potential cscli command to delete a CrowdSec decision for one IP. The MCP does not execute it.",
+        description="Prepare and audit a potential cscli command to delete a CrowdSec decision for one IP. Executes with cscli only when execute=true.",
         inputSchema=_schema({"ip": IP, "reason": {"type": "string"}, "execute": EXECUTE}, ["ip"]),
     ),
     types.Tool(
         name="allow_ip",
-        description="Prepare and audit a potential cscli command to add a temporary allow decision for one IP. The MCP does not execute it.",
+        description="Prepare and audit a potential cscli command to add a temporary allow decision for one IP. This tool does not execute writes.",
         inputSchema=_schema(
-            {"ip": IP, "duration": {"type": "string", "default": "1h"}, "reason": {"type": "string"}, "execute": EXECUTE},
+            {"ip": IP, "duration": {"type": "string", "default": "1h"}, "reason": {"type": "string"}, "execute": PREPARE_ONLY_EXECUTE},
             ["ip", "reason"],
         ),
     ),
     types.Tool(
         name="ban_ip",
-        description="Prepare and audit a potential cscli command to add a CrowdSec ban decision for one IP. The MCP does not execute it.",
+        description="Prepare and audit a potential cscli command to add a CrowdSec ban decision for one IP. Executes with cscli only when execute=true.",
         inputSchema=_schema(
             {"ip": IP, "duration": {"type": "string", "default": "4h"}, "reason": {"type": "string"}, "execute": EXECUTE},
             ["ip", "reason"],
@@ -116,7 +121,7 @@ async def suggest_scenario(window: str | None = None) -> dict:
 
 
 async def unban_ip(ip: str, reason: str | None = None, execute: bool | None = None) -> dict:
-    """Prepare an audited potential cscli command to delete a CrowdSec decision for one IP."""
+    """Prepare or execute an audited cscli command to delete a CrowdSec decision for one IP."""
     return await ops.write_action("unban", ip, None, reason or "operator unban via MCP", execute)
 
 
@@ -136,7 +141,7 @@ async def ban_ip(
     reason: str = "manual operator ban via MCP",
     execute: bool | None = None,
 ) -> dict:
-    """Prepare an audited potential cscli command to add a CrowdSec ban decision for one IP."""
+    """Prepare or execute an audited cscli command to add a CrowdSec ban decision for one IP."""
     return await ops.write_action("ban", ip, duration, reason, execute)
 
 

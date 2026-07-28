@@ -4,7 +4,7 @@ This guide explains how to install, run, and use `crowdsec-ops-mcp`.
 
 ## What This MCP Does
 
-`crowdsec-ops-mcp` exposes CrowdSec state and tightly scoped single-IP operator action proposals to an MCP client.
+`crowdsec-ops-mcp` exposes CrowdSec state and tightly scoped single-IP operator actions to an MCP client.
 
 It only talks to CrowdSec. Agents are responsible for combining this MCP with separate logs, metrics, and dashboard MCPs when a broader investigation needs more context.
 
@@ -13,7 +13,7 @@ It only talks to CrowdSec. Agents are responsible for combining this MCP with se
 - Docker and Docker Compose
 - Network access from this container to CrowdSec LAPI
 - A CrowdSec LAPI key for read access
-- Optional: `cscli` path configuration if you want generated command text to match a non-default local path
+- Optional: `cscli` access if you want executed single-IP ban or unban actions
 
 Do not mount the Docker socket into this container.
 
@@ -138,7 +138,7 @@ Prepare a potential manual ban command:
 }
 ```
 
-The response includes a `potential_cscli_command` and appends the prepared intent to the write audit log. The MCP does not execute the command, even if a legacy `execute` flag is sent:
+The response includes a `potential_cscli_command` and appends the prepared intent to the write audit log. Execute only after reviewing the command:
 
 ```json
 {
@@ -186,10 +186,10 @@ Prepare a temporary allow:
 Inspect 198.51.100.25 in CrowdSec and decide whether a temporary allow is safer than unbanning. If allowlisting is justified, prepare only a potential allow_ip command for 1h with the reason. Do not execute changes.
 ```
 
-Prepare an operator-reviewed command:
+Execute an operator-reviewed command:
 
 ```text
-Prepare the previously reviewed ban command for 203.0.113.10 for 4h with reason "confirmed repeated exploit attempts". Use only the single-IP ban tool. Do not perform any bulk action.
+Execute the previously reviewed ban command for 203.0.113.10 for 4h with reason "confirmed repeated exploit attempts". Use only the single-IP ban tool with execute=true. Do not perform any bulk action.
 ```
 
 Suggest tuning without applying it:
@@ -201,7 +201,7 @@ Analyze recent CrowdSec alerts from the last 7d and suggest scenario tuning if t
 Good prompts usually include:
 
 - a specific IP or window
-- whether write proposals are wanted
+- whether write proposals or executed single-IP ban/unban actions are wanted
 - whether the answer should stay CrowdSec-only or orchestrate other MCPs
 - the expected output, such as recommendation, potential command, or YAML proposal
 
@@ -240,7 +240,7 @@ Docker tags cannot contain `/` or `#`, so use `:edge`, `:main`, and `:pr-123`.
 ## Safety Checklist
 
 - Prefer temporary allow entries over permanent allowlisting.
-- Review every prepared write command before running it manually outside the MCP.
+- Review every prepared write command before setting `execute=true`.
 - Do not add bulk ban, bulk unban, or delete-all tools.
 - Do not add direct access to VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
 - Let agents orchestrate cross-system investigations through separate MCPs.
@@ -260,8 +260,8 @@ If image pull fails with `401 Unauthorized` or `failed to resolve reference`:
 - Confirm the token identity has access to the private package or private repository.
 - Alternatively, make the GHCR package public if unauthenticated pulls are acceptable.
 
-If prepared write commands look wrong:
+If prepared or executed write commands look wrong:
 
 - Confirm `CSCLI_PATH` matches the command path operators expect to run.
 - Confirm the returned potential command is valid for your CrowdSec deployment.
-- Keep actual CrowdSec changes outside the MCP.
+- Confirm `execute=true` was only used for reviewed single-IP ban/unban actions.
