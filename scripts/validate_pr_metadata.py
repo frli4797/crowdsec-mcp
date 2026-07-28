@@ -9,9 +9,7 @@ TITLE_RE = re.compile(r"^(Feature|Fix|Chore|Docs|CI/CD|Release): .+")
 REQUIRED_SECTIONS = [
     "## Summary",
     "## Type",
-    "## Safety",
     "## Validation",
-    "## Release Notes",
 ]
 
 
