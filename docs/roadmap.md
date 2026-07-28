@@ -4,21 +4,19 @@ This note captures the current project roadmap for `crowdsec-ops-mcp` so we can 
 
 ## Current Position
 
-The near-term priority is to improve read-side tools and capabilities before enabling production write operations.
+The server now has a useful read-side foundation:
 
-Read-side improvements are lower risk and likely more useful immediately:
+- `crowdsec_health` explains backend mode, LAPI reachability, `cscli` availability, configured defaults, write-audit path, and exposed capabilities.
+- `decision_inventory` summarizes active decisions with filters, grouped counts, expiry views, long-lived/stale views, and representative rows.
+- write tools are prepare-only and audited; the legacy `execute` flag is accepted but does not mutate CrowdSec state.
 
-- richer IP inspection
-- clearer decision and alert summaries
-- better top-offender and scenario evidence
-- safer recommendations before any mutation is considered
-- more useful output for agents that correlate CrowdSec with separate logs, metrics, and dashboard MCPs
+The near-term priority remains read-side depth and operator ergonomics before revisiting any production write execution.
 
-The roadmap has three main avenues:
+The roadmap now has three main avenues:
 
-- read-side CrowdSec investigation tools
-- safe write-intent and future write execution design
-- shared reliability, output contracts, and operator ergonomics
+- sharper CrowdSec investigation tools
+- safe write-intent audit visibility and future write execution design
+- shared reliability, pagination, output contracts, and agent ergonomics
 
 ## Read-Side Investigation Tools
 
@@ -26,22 +24,26 @@ These additions should stay CrowdSec-only and should not mutate CrowdSec state.
 
 ### 1. Harden Existing Reads
 
-Status: partially implemented.
+Status: mostly implemented; continue opportunistic hardening.
 
-Continue hardening the existing `cscli` JSON execution path:
+Implemented:
 
-- ensure the subprocess helper imports and handles its runtime dependencies correctly
-- test `decisions()` and `alerts()` against representative mocked `cscli` JSON output
-- cover `cscli` failures, empty output, malformed JSON, and missing executable behavior
-- keep logs on stderr so stdio transport remains valid
+- `decisions()` and `alerts()` have representative tests for LAPI and `cscli` JSON shapes.
+- health reporting covers missing `cscli`, LAPI reachability, and sample-count behavior.
+- logging stays on stderr so stdio transport remains valid.
+
+Remaining work:
+
+- add more malformed JSON and unusual `cscli` output fixtures as they are observed
+- keep response behavior stable when CrowdSec returns sparse or partially missing fields
 
 ### 2. Add a CrowdSec Health Tool
 
 Status: implemented as `crowdsec_health(include_sample_counts=false)`.
 
-Add a read-only `crowdsec_health` tool that helps operators understand why results may be empty or incomplete.
+The read-only `crowdsec_health` tool helps operators understand why results may be empty or incomplete.
 
-Useful fields:
+Implemented fields:
 
 - backend mode: LAPI or `cscli`
 - LAPI URL presence and reachability, without exposing secrets
@@ -53,9 +55,11 @@ Useful fields:
 
 ### 3. Add Decision Inventory Views
 
-Add a `decision_inventory` tool for answering what is currently remediated and why.
+Status: implemented as `decision_inventory(...)`.
 
-Useful filters:
+The `decision_inventory` tool answers what is currently remediated and why.
+
+Implemented filters:
 
 - action
 - origin
@@ -64,7 +68,7 @@ Useful filters:
 - ASN
 - IP
 
-Useful output:
+Implemented output:
 
 - total active decisions
 - decisions grouped by action, origin, scenario, country, and ASN
@@ -73,6 +77,8 @@ Useful output:
 - representative decision rows with a configurable limit
 
 ### 4. Add Alert Timeline Bucketing
+
+Status: not implemented.
 
 Add an `alert_timeline` tool that groups recent alerts into time buckets.
 
@@ -92,6 +98,8 @@ Useful output:
 
 ### 5. Add Decision Gap Analysis
 
+Status: not implemented.
+
 Add a `decision_gap_report` tool that highlights places where the read-only evidence suggests operator attention.
 
 Useful findings:
@@ -106,19 +114,28 @@ This tool should return evidence and recommendations only. It should not prepare
 
 ### 6. Improve IP Inspection
 
+Status: partially implemented.
+
 Extend `inspect_ip` with normalized fields that make agent and human review easier.
 
-Useful fields:
+Already available:
 
-- first seen and last seen timestamps
+- active decisions for the IP
+- recent CrowdSec alerts for the IP
+- summary fields for decision actions, countries, ASNs, scenarios, first timestamp, and last timestamp
+- recommendation with action, rationale, and confidence
+
+Remaining useful fields:
+
 - total alert count and total event count
 - unique scenarios
-- active decision actions
 - decision expiry timestamps
-- country and ASN evidence
-- clearer recommendation shape with action, rationale, confidence, and suggested follow-up
+- suggested follow-up
+- clear indication when an IP-specific backend lookup fails but broader data is still available
 
 ### 7. Make Scenario Suggestions Evidence-Driven
+
+Status: partially implemented; currently generic.
 
 Improve `suggest_scenario` so generated proposals are derived from observed alert frequency and distribution rather than always emitting a generic repeat-offender scenario.
 
@@ -133,6 +150,8 @@ Useful output:
 
 ### 8. Add Read-Only Write-Intent Audit Introspection
 
+Status: not implemented.
+
 Add a `recent_write_intents` tool that reads the JSON Lines audit log and returns recently prepared commands.
 
 Useful safeguards:
@@ -145,6 +164,14 @@ Useful safeguards:
 
 ### 9. Add Limits and Pagination
 
+Status: partially implemented.
+
+Implemented:
+
+- `decision_inventory` accepts `limit` and caps it to a safe maximum.
+
+Remaining work:
+
 List-like tools should accept limits so MCP responses stay small during busy periods.
 
 Useful controls:
@@ -155,6 +182,8 @@ Useful controls:
 - clear truncation metadata
 
 ### 10. Tighten Output Contracts
+
+Status: partially implemented.
 
 Move frequently returned dictionaries into explicit response models where practical.
 
@@ -289,15 +318,15 @@ Any future write execution should keep these constraints:
 
 ## Suggested Implementation Order
 
-Recommended sequence:
+Recommended sequence from the current state:
 
-1. continue hardening the existing `cscli` read path
-2. extend or refine `crowdsec_health`
-3. add `decision_gap_report`
-4. add `alert_timeline`
-5. improve `inspect_ip`
-6. add `decision_inventory`
-7. improve `suggest_scenario`
-8. add `recent_write_intents`
-9. add pagination and stricter response models as shared cleanup
-10. revisit write execution only after the read-side tools are stronger
+1. fix sparse IP lookup edge cases found in `decision_inventory(ip=...)`
+2. add `decision_gap_report`
+3. add `alert_timeline`
+4. improve `inspect_ip` with counts, event totals, expiry summaries, and suggested follow-up
+5. make `suggest_scenario` evidence-driven instead of generic
+6. add read-only `recent_write_intents`
+7. add limits or pagination to list-like tools beyond `decision_inventory`
+8. tighten high-value output contracts with explicit response models
+9. continue `cscli` read-path hardening as new fixtures or failures appear
+10. revisit write execution only after the read-side tools and audit introspection are stronger
