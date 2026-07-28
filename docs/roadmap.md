@@ -6,9 +6,11 @@ This note captures the current project roadmap for `crowdsec-ops-mcp` so we can 
 
 The server now has a useful read-side foundation:
 
-- `crowdsec_health` explains backend mode, LAPI reachability, `cscli` availability, configured defaults, write-audit path, and exposed capabilities.
+- `crowdsec_health` explains backend mode, LAPI reachability, `cscli` path diagnostics, configured defaults, write-audit path, and exposed capabilities.
 - `decision_inventory` summarizes active decisions with filters, grouped counts, expiry views, long-lived/stale views, and representative rows.
 - write tools are prepare-only and audited; the legacy `execute` flag is accepted but does not mutate CrowdSec state.
+
+Supported runtime reads use CrowdSec LAPI. Actual `cscli` reads and `cscli` execution are not supported today. `cscli` appears in current behavior only as prepared command text returned for human review.
 
 The near-term priority remains read-side depth and operator ergonomics before revisiting any production write execution.
 
@@ -24,17 +26,17 @@ These additions should stay CrowdSec-only and should not mutate CrowdSec state.
 
 ### 1. Harden Existing Reads
 
-Status: mostly implemented; continue opportunistic hardening.
+Status: partially implemented.
 
 Implemented:
 
-- `decisions()` and `alerts()` have representative tests for LAPI and `cscli` JSON shapes.
-- health reporting covers missing `cscli`, LAPI reachability, and sample-count behavior.
+- LAPI-backed `decisions()` and `alerts()` have representative tests.
+- health reporting covers LAPI reachability and sample-count behavior.
 - logging stays on stderr so stdio transport remains valid.
 
 Remaining work:
 
-- add more malformed JSON and unusual `cscli` output fixtures as they are observed
+- decide whether to remove dormant `cscli` read fallback code or promote it to a documented, tested feature later
 - keep response behavior stable when CrowdSec returns sparse or partially missing fields
 
 ### 2. Add a CrowdSec Health Tool
@@ -45,9 +47,9 @@ The read-only `crowdsec_health` tool helps operators understand why results may 
 
 Implemented fields:
 
-- backend mode: LAPI or `cscli`
+- backend mode, currently expected to be LAPI for supported deployments
 - LAPI URL presence and reachability, without exposing secrets
-- `cscli` path and availability when relevant
+- `cscli` path/availability diagnostics as implementation detail only; this is not a supported read or execution mode
 - default lookback window
 - write audit log path
 - exposed tool capabilities
@@ -204,7 +206,7 @@ Write operations should remain a separate avenue from read-side investigation wo
 
 ### Existing Safe Write Foundation
 
-The current safe write foundation prepares potential `cscli` commands and writes JSON Lines audit records.
+The current safe write foundation prepares potential `cscli` command text and writes JSON Lines audit records. The MCP does not run those commands.
 
 This gives operators:
 
@@ -232,16 +234,18 @@ Until that decision is made, keep write execution PRs draft or experimental.
 
 #### Option 1: Execute With cscli
 
-The proposed write execution path uses:
+Status: future option only; not supported today.
+
+The proposed write execution path would use:
 
 ```bash
 cscli decisions add --ip <ip> --type ban --reason <reason> --duration <duration>
 cscli decisions delete --ip <ip>
 ```
 
-This requires `cscli` to be available inside the MCP runtime environment.
+This would require `cscli` to be available inside the MCP runtime environment.
 
-If the MCP runs in Docker, installing the binary alone is not enough. `cscli` also needs CrowdSec machine credentials, normally mounted at:
+If the MCP runs in Docker, installing the binary alone would not be enough. `cscli` also needs CrowdSec machine credentials, normally mounted at:
 
 ```text
 /etc/crowdsec/local_api_credentials.yaml
@@ -260,7 +264,7 @@ Important distinction:
 - bouncer API keys are for reading decisions
 - machine credentials are needed for creating and deleting decisions
 
-If this path is used, keep the container setup explicit:
+If this path is used in the future, keep the container setup explicit:
 
 ```yaml
 environment:
@@ -328,5 +332,5 @@ Recommended sequence from the current state:
 6. add read-only `recent_write_intents`
 7. add limits or pagination to list-like tools beyond `decision_inventory`
 8. tighten high-value output contracts with explicit response models
-9. continue `cscli` read-path hardening as new fixtures or failures appear
+9. decide whether dormant `cscli` read fallback code should be removed or promoted to supported functionality
 10. revisit write execution only after the read-side tools and audit introspection are stronger

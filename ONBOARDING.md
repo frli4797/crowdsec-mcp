@@ -13,7 +13,7 @@ It only talks to CrowdSec. For broader investigations, use it alongside separate
 - Docker and Docker Compose
 - Network access from this container to CrowdSec LAPI
 - A CrowdSec LAPI key for read access
-- Optional: `cscli` path configuration if you want generated command text to match a non-default local path
+- Optional: `CSCLI_PATH` configuration if you want generated command text to match a non-default operator command path
 
 Do not mount the Docker socket into this container.
 
@@ -21,7 +21,7 @@ Do not mount the Docker socket into this container.
 
 Run the MCP near CrowdSec, usually on the same Docker network as the CrowdSec service.
 
-Because the repository and package are private, authenticate Docker to GHCR on the target host before pulling:
+If the GHCR package is private or your deployment environment requires authenticated pulls, authenticate Docker to GHCR on the target host before pulling:
 
 ```bash
 echo "<github-token-with-read-packages>" | docker login ghcr.io -u "<github-username>" --password-stdin
@@ -175,6 +175,7 @@ If reads return no data:
 - Confirm `CROWDSEC_LAPI_URL` points to the CrowdSec LAPI from inside the container network.
 - Confirm `CROWDSEC_LAPI_KEY` is present in the container environment.
 - Confirm CrowdSec has active decisions or recent alerts for the requested window.
+- Do not expect `cscli` fallback reads; actual `cscli` reads are not supported by the MCP today.
 
 If image pull fails with `401 Unauthorized` or `failed to resolve reference`:
 
@@ -185,6 +186,6 @@ If image pull fails with `401 Unauthorized` or `failed to resolve reference`:
 
 If prepared write commands look wrong:
 
-- Confirm `CSCLI_PATH` matches the command path operators expect to run.
+- Confirm `CSCLI_PATH` matches the command path operators expect to run manually outside the MCP.
 - Confirm the returned potential command is valid for your CrowdSec deployment.
 - Keep actual CrowdSec changes outside the MCP.

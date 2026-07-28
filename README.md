@@ -4,6 +4,8 @@
 
 It exposes CrowdSec decisions, alerts, summaries, and safe single-IP action proposals to MCP clients. It is intentionally CrowdSec-only: it does not connect to VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
 
+Supported runtime reads use CrowdSec LAPI. Actual `cscli` reads or `cscli` execution are not supported by the MCP today; write tools only generate `cscli` command text for an operator to review and run outside the MCP if appropriate.
+
 ## Contents
 
 - [What You Can Do](#what-you-can-do)
@@ -47,9 +49,9 @@ See [docs/decision-inventory-example.md](docs/decision-inventory-example.md) for
 
 | Variable | Purpose |
 | --- | --- |
-| `CROWDSEC_LAPI_URL` | CrowdSec LAPI base URL. If omitted, `cscli` is used. |
+| `CROWDSEC_LAPI_URL` | CrowdSec LAPI base URL. Required for supported read operation. |
 | `CROWDSEC_LAPI_KEY` | CrowdSec LAPI key for decision reads. |
-| `CSCLI_PATH` | Path to `cscli`, defaults to `cscli`. |
+| `CSCLI_PATH` | Command name/path used only when formatting prepared `potential_cscli_command` text. The MCP does not run `cscli`. |
 | `DEFAULT_WINDOW` | Default lookback window, defaults to `24h`. |
 | `WRITE_AUDIT_LOG_PATH` | JSON Lines audit trail for prepared write intents, defaults to `crowdsec-write-audit.jsonl`. |
 | `LOG_LEVEL` | Python log level, defaults to `INFO`. |
