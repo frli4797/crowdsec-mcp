@@ -1,0 +1,23 @@
+# Optional override for deployments that do not already classify scan/exploit/cve
+# scenarios with a stricter profile.
+#
+# If your profiles.yaml already has an early profile such as:
+#   Alert.GetScenario() contains "exploit"
+#   Alert.GetScenario() contains "scan"
+#   Alert.GetScenario() contains "cve"
+# then these local/snort-* scenarios may already receive that duration.
+name: local_snort_priority1_remediation
+filters:
+  - Alert.Remediation == true && Alert.GetScope() == "Ip" && Alert.GetScenario() == "local/snort-priority1-repeat"
+decisions:
+  - type: ban
+    duration: 12h
+on_success: break
+---
+name: local_snort_repeat_scan_remediation
+filters:
+  - Alert.Remediation == true && Alert.GetScope() == "Ip" && Alert.GetScenario() contains "local/snort-"
+decisions:
+  - type: ban
+    duration: 4h
+on_success: break

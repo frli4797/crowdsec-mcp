@@ -1,0 +1,26 @@
+type: leaky
+name: local/snort-db-scan-repeat
+description: "Repeated Snort database-service scan alerts from one source IP"
+filter: >-
+  evt.Line.Labels.type == 'snort' &&
+  evt.Meta.source_ip != '' &&
+  (
+    evt.Meta.target_port == '1433' ||
+    evt.Meta.target_port == '1521' ||
+    evt.Meta.target_port == '3306' ||
+    evt.Meta.target_port == '5432'
+  )
+groupby: evt.Meta.source_ip
+distinct: evt.Parsed.sid + ":" + evt.Meta.target_ip + ":" + evt.Meta.target_port + ":" + evt.Parsed.src_port
+capacity: 4
+leakspeed: "1h"
+blackhole: "10m"
+labels:
+  remediation: true
+  classification:
+    - attack.T1595
+  behavior: "http:scan"
+  label: "Snort database scan repeat"
+  service: tcp
+  confidence: 2
+  spoofable: 0

@@ -1,0 +1,18 @@
+# evidence:
+#   window: 7d
+#   top_crowdsec_scenarios: []
+#   top_source_ips: []
+# risk: May over-remediate if benign scanners, health checks, or misclassified traffic trigger it.
+# expected_noise: unknown
+# recommended_simulation_period: 7d
+type: leaky
+name: local/crowdsec-repeat-offender
+description: Detect repeated CrowdSec alerts from the same source IP
+filter: evt.Meta.source_ip != ''
+groupby: evt.Meta.source_ip
+capacity: 5
+leakspeed: 10m
+blackhole: 1h
+labels:
+  remediation: true
+  service: crowdsec

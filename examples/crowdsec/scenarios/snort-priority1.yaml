@@ -1,0 +1,21 @@
+type: leaky
+name: local/snort-priority1-repeat
+description: "Escalate repeated Snort priority 1 alerts from the same external source"
+filter: |
+  evt.Line.Labels.type == 'snort' &&
+  evt.Parsed.priority == '1'
+groupby: evt.Meta.source_ip
+distinct: evt.Parsed.sid + ":" + evt.Meta.target_ip + ":" + evt.Meta.target_port + ":" + evt.Parsed.src_port
+capacity: 2
+leakspeed: "10m"
+blackhole: "30m"
+labels:
+  service: snort
+  remediation: true
+  confidence: 2
+  spoofable: 2
+  classification:
+    - attack.T1595
+    - attack.T1190
+  behavior: "http:exploit"
+  label: "Snort priority 1 repeated alert"
