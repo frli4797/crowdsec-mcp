@@ -2,7 +2,19 @@
 
 ## Unreleased
 
+- Nothing yet.
+
+## v0.3.2 - 2026-08-13
+
+### Fixed
+
 - Removed the unsupported scenario simulation enable/disable MCP tools. Standard CrowdSec LAPI does not expose scenario simulation management.
+
+### Security And Safety
+
+- CrowdSec-only MCP boundary is unchanged.
+- IP write tools remain prepare-only, with no MCP-executed CrowdSec mutations.
+- Removed the attempted scenario simulation API write surface because standard CrowdSec LAPI does not support it.
 
 ## v0.3.1 - 2026-08-13
 
