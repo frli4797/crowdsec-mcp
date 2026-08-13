@@ -8,16 +8,14 @@ Use this MCP for CrowdSec evidence only. When a question needs logs, metrics, da
 
 Prefer supported CrowdSec API-level access over remote `cscli` execution. Treat returned `cscli` commands as reviewed operator command text unless the tool contract explicitly says otherwise.
 
-Scenario simulation tools are read-write operations. They execute through CrowdSec API machine auth only when `WRITE_OPERATIONS_ENABLED=true`, and they must remain single-scenario, reasoned, audited, and protected by the exact `user_confirmation` phrase.
-
 Good agent output should:
 
 - name the time window
 - separate facts from recommendations
 - identify which source produced each fact
 - state uncertainty when evidence is missing
-- avoid claiming a CrowdSec action was executed unless the tool returned `executed=true`
-- return prepared IP decision commands only when explicitly requested or clearly warranted by the prompt
+- avoid claiming a CrowdSec action was executed
+- return prepared commands only when explicitly requested or clearly warranted by the prompt
 
 ## Evidence Handling
 
@@ -54,11 +52,9 @@ For scenario simulation moves, include:
 - the exact scenario name
 - whether the scenario is moving into or out of simulation
 - the evidence or operator review that justifies the move
-- that the user supplied the exact confirmation phrase `confirm scenario simulation <action> <scenario>`
-- the returned API method, status, and `executed` value
-- the returned auth context
-
-If the user asks for a scenario simulation move but has not supplied the exact confirmation phrase, do not call the write tool yet. State the scenario, action, and reason you intend to use, then ask the user to reply with exactly `confirm scenario simulation <action> <scenario>`.
+- the prepared command only
+- a reminder that the MCP did not execute the change
+- the returned auth context, without implying LAPI machine auth directly changed simulation state
 
 ## Prompt Patterns
 
@@ -66,7 +62,6 @@ Good prompts usually include:
 
 - a specific IP or lookback window
 - whether write proposals are wanted
-- whether gated scenario simulation writes are allowed
 - whether the answer should stay CrowdSec-only or use other tools
 - the expected output, such as recommendation, potential command, or YAML proposal
 
@@ -106,28 +101,16 @@ Prepare an operator-reviewed command:
 Prepare the previously reviewed ban command for 203.0.113.10 for 4h with reason "confirmed repeated exploit attempts". Use only the single-IP ban tool. Do not perform any bulk action.
 ```
 
-Move a scenario into simulation:
+Prepare moving a scenario into simulation:
 
 ```text
-Move local/snort-misc-attack-repeat into simulation with reason "new scenario should soak before remediation". Ask the user to confirm exactly "confirm scenario simulation enable local/snort-misc-attack-repeat" before calling the tool, then report the returned method, status, and executed value.
+Prepare moving local/snort-misc-attack-repeat into simulation with reason "new scenario should soak before remediation". Return only the prepared command details and do not execute changes.
 ```
 
-Promote a scenario out of simulation:
+Prepare promoting a scenario out of simulation:
 
 ```text
-Move local/snort-misc-attack-repeat out of simulation with reason "7d simulation period was clean and operator reviewed alerts". Ask the user to confirm exactly "confirm scenario simulation disable local/snort-misc-attack-repeat" before calling the tool, then report the returned method, status, and executed value.
-```
-
-Preview a scenario simulation move without writing:
-
-```text
-Review whether local/snort-misc-attack-repeat should leave simulation. Show the evidence, proposed action, and exact confirmation phrase that would be required, but do not call the write tool.
-```
-
-Approval turn after the agent asks:
-
-```text
-confirm scenario simulation disable local/snort-misc-attack-repeat
+Prepare moving local/snort-misc-attack-repeat out of simulation with reason "7d simulation period was clean and operator reviewed alerts". Return only the prepared command details and do not execute changes.
 ```
 
 Suggest tuning without applying it:

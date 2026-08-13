@@ -14,9 +14,8 @@ Allowed integrations:
 
 - CrowdSec LAPI for read-only decision data
 - CrowdSec LAPI machine auth for alert reads
-- supported CrowdSec API-level access for scoped reads or writes
-- CrowdSec LAPI machine auth for gated, audited single-scenario simulation writes
-- `cscli` command generation for reviewed single-IP decision intents
+- supported CrowdSec API-level access for future reads or writes
+- `cscli` command generation for reviewed single-IP decision intents and single-scenario simulation intents
 
 Prefer API-level access over remote command execution. Do not add remote `cscli` execution when a supported CrowdSec API path can provide the capability. If `cscli` is used, keep it to local operator command generation unless a future design explicitly documents why no API-level alternative exists.
 
@@ -34,15 +33,13 @@ For broader security investigations, agents should orchestrate this MCP alongsid
 ## Safety Rules
 
 - Default to read-only tools and read-side improvements.
-- Single-IP write tools may prepare commands only; they must not execute CrowdSec IP decision mutations.
-- API write tools are allowed only when they are explicitly scoped, gated by `WRITE_OPERATIONS_ENABLED=true`, machine-authenticated, and audited.
-- Keep IP write intents single-IP only.
-- Keep scenario simulation writes single-scenario only.
-- Before calling a scenario simulation write tool, ask the user for the exact confirmation phrase `confirm scenario simulation <action> <scenario>` and pass it as `user_confirmation`.
+- Write tools may prepare commands only; they must not execute CrowdSec mutations.
+- Keep write intents single-IP only.
+- Keep scenario simulation intents single-scenario only.
 - Do not add bulk ban, bulk unban, range ban, delete-all, parser mutation, scenario mutation, or profile mutation tools.
-- Require a human-readable reason for any prepared ban, allow, unban, or scenario simulation write.
+- Require a human-readable reason for any prepared ban, allow, unban, or scenario simulation action.
 - Prefer temporary allowlisting over permanent allowlisting.
-- Preserve audit logging for prepared write intents and executed API writes.
+- Preserve audit logging for prepared write intents.
 - Do not expose API keys, machine credentials, URL-embedded credentials, or audit-log secrets in responses or logs.
 
 ## Development Workflow
@@ -61,7 +58,7 @@ Use `README.md` as the user-facing front door:
 
 - short project description
 - what the MCP can do
-- safety headline for prepared IP actions and gated API writes
+- safety headline for prepared write actions
 - tool list
 - configuration variable summary
 - links to deeper user docs
@@ -127,7 +124,6 @@ When documentation overlaps, prefer linking over copying. If the same content ap
 - Do not rewrite history unless explicitly requested.
 - Do not revert user changes unless explicitly requested.
 - Commit focused changes with conventional, descriptive messages.
-- When creating a pull request, always use the required metadata contract from `docs/pull-request-rules.md`: title prefix `Feature`, `Fix`, `Chore`, `Docs`, `CI/CD`, or `Release`, plus body sections `## Summary`, `## Type`, and `## Validation`.
 
 ## Useful Docs
 

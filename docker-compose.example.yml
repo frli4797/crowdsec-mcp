@@ -9,7 +9,6 @@ services:
       CROWDSEC_LAPI_KEY: ${CROWDSEC_LAPI_KEY}
       CROWDSEC_LAPI_MACHINE_ID: ${CROWDSEC_LAPI_MACHINE_ID:-}
       CROWDSEC_LAPI_MACHINE_PASSWORD: ${CROWDSEC_LAPI_MACHINE_PASSWORD:-}
-      WRITE_OPERATIONS_ENABLED: ${WRITE_OPERATIONS_ENABLED:-false}
       WRITE_AUDIT_LOG_PATH: /var/log/crowdsec-ops-mcp/write-audit.jsonl
     networks:
       - security

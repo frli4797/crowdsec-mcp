@@ -2,9 +2,9 @@
 
 `crowdsec-ops-mcp` is a local MCP server for CrowdSec operations.
 
-It exposes CrowdSec decisions, alerts, summaries, safe single-IP action proposals, and audited single-scenario simulation writes to MCP clients. It is intentionally CrowdSec-only: it does not connect to VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
+It exposes CrowdSec decisions, alerts, summaries, safe single-IP action proposals, and scenario simulation proposals to MCP clients. It is intentionally CrowdSec-only: it does not connect to VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
 
-Supported runtime operations use CrowdSec LAPI. Decision reads use a bouncer API key. Alert reads and scenario simulation writes require CrowdSec machine credentials because bouncer keys can only read decisions. Actual `cscli` reads or `cscli` execution are not supported by the MCP today.
+Supported runtime reads use CrowdSec LAPI. Decision reads use a bouncer API key. Alert reads require optional CrowdSec machine credentials because bouncer keys can only read decisions. Actual `cscli` reads or `cscli` execution are not supported by the MCP today; write tools only generate `cscli` command text for an operator to review and run outside the MCP if appropriate.
 
 ## Contents
 
@@ -22,19 +22,15 @@ Supported runtime operations use CrowdSec LAPI. Decision reads use a bouncer API
 - Find top offending source IPs.
 - Generate scenario-tuning proposals from repeated alert patterns.
 - Prepare audited single-IP ban, allow, or unban commands for manual review.
-- Move one scenario into or out of simulation through the CrowdSec API with machine auth.
+- Prepare audited commands to move one scenario into or out of simulation for manual review.
 
-Single-IP write tools do not execute CrowdSec changes. They validate the requested IP, prepare a plausible `cscli` command for an operator to review, append the prepared intent to the JSON Lines audit log, and return `executed=false`.
+Write tools do not execute CrowdSec changes. They validate the requested IP or scenario, prepare a plausible `cscli` command for an operator to review, append the prepared intent to the JSON Lines audit log, and return `executed=false`. Scenario simulation responses also include non-secret auth context so agents can distinguish LAPI machine-auth availability from the local `cscli` simulation command being proposed.
 
-Scenario simulation tools are the narrow read-write exception. They require `WRITE_OPERATIONS_ENABLED=true`, one scenario name, a human-readable reason, and an exact user confirmation phrase of `confirm scenario simulation <action> <scenario>`. They use CrowdSec LAPI machine auth, append attempted and applied records to the JSON Lines audit log, and return `executed=true` only after the API call succeeds.
-
-For future capabilities, prefer supported CrowdSec API-level access over remote `cscli` execution. `cscli` text in IP write responses is for local operator review unless a future design explicitly documents why no API-level alternative exists.
+For future capabilities, prefer supported CrowdSec API-level access over remote `cscli` execution. `cscli` text in responses is for local operator review unless a future design explicitly documents why no API-level alternative exists.
 
 ## Getting Started
 
 See [ONBOARDING.md](ONBOARDING.md) for installation, deployment, MCP client configuration, first tool calls, safety notes, and troubleshooting.
-
-See [ONBOARDING.md#example-simulation-prompts-and-approvals](ONBOARDING.md#example-simulation-prompts-and-approvals) for example scenario simulation prompts and the required confirmation phrase flow.
 
 See [docs/decision-inventory-example.md](docs/decision-inventory-example.md) for example `decision_inventory` tool calls.
 
@@ -54,8 +50,8 @@ See [docs/decision-gap-report-example.md](docs/decision-gap-report-example.md) f
 - `unban_ip(ip, reason?, execute=false)`
 - `allow_ip(ip, duration?, reason, execute=false)`
 - `ban_ip(ip, duration?, reason, execute=false)`
-- `enable_scenario_simulation(scenario, reason, user_confirmation, execute=false)`
-- `disable_scenario_simulation(scenario, reason, user_confirmation, execute=false)`
+- `enable_scenario_simulation(scenario, reason, execute=false)`
+- `disable_scenario_simulation(scenario, reason, execute=false)`
 
 ## Configuration
 
@@ -63,10 +59,8 @@ See [docs/decision-gap-report-example.md](docs/decision-gap-report-example.md) f
 | --- | --- |
 | `CROWDSEC_LAPI_URL` | CrowdSec LAPI base URL. Required for supported read operations. |
 | `CROWDSEC_LAPI_KEY` | CrowdSec LAPI key for decision reads. |
-| `CROWDSEC_LAPI_MACHINE_ID` | Optional CrowdSec machine ID for alert reads and scenario simulation writes. |
-| `CROWDSEC_LAPI_MACHINE_PASSWORD` | Optional CrowdSec machine password for alert reads and scenario simulation writes. |
-| `CROWDSEC_LAPI_SIMULATION_PATH_TEMPLATE` | Scenario simulation API path template, defaults to `/v1/scenarios/{scenario}/simulation`. `{scenario}` is URL-encoded. |
-| `WRITE_OPERATIONS_ENABLED` | Set to `true` to allow read-write tools such as scenario simulation changes. Defaults to disabled. |
+| `CROWDSEC_LAPI_MACHINE_ID` | Optional CrowdSec machine ID for read-only alert list access. |
+| `CROWDSEC_LAPI_MACHINE_PASSWORD` | Optional CrowdSec machine password for read-only alert list access. |
 | `CSCLI_PATH` | Command name/path used only when formatting prepared `potential_cscli_command` text. The MCP does not run `cscli`. |
 | `DEFAULT_WINDOW` | Default lookback window, defaults to `24h`. |
 | `WRITE_AUDIT_LOG_PATH` | JSON Lines audit trail for prepared write intents, defaults to `crowdsec-write-audit.jsonl`. |

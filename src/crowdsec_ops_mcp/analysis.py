@@ -168,10 +168,9 @@ class SecurityOps:
         action: str,
         scenario: str,
         reason: str,
-        user_confirmation: str,
         execute: bool | None,
     ) -> dict[str, Any]:
-        return await self.crowdsec.write_scenario_simulation(action, scenario, reason, user_confirmation, bool(execute))
+        return await self.crowdsec.write_scenario_simulation(action, scenario, reason, bool(execute))
 
 
 def summarize_ip(decisions: list[Decision], alerts: list[CrowdSecAlert]) -> dict[str, Any]:

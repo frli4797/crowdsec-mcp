@@ -19,8 +19,6 @@ def _config(audit_log_path):
         crowdsec_lapi_key=None,
         crowdsec_lapi_machine_id=None,
         crowdsec_lapi_machine_password=None,
-        crowdsec_lapi_simulation_path_template="/v1/scenarios/{scenario}/simulation",
-        write_operations_enabled=False,
         cscli_path="cscli-test",
         default_window="24h",
         write_audit_log_path=str(audit_log_path),
@@ -33,8 +31,6 @@ def _lapi_config(audit_log_path):
         crowdsec_lapi_key="lapi-secret",
         crowdsec_lapi_machine_id="mcp-machine",
         crowdsec_lapi_machine_password="machine-secret",
-        crowdsec_lapi_simulation_path_template="/v1/scenarios/{scenario}/simulation",
-        write_operations_enabled=True,
         cscli_path="cscli-test",
         default_window="24h",
         write_audit_log_path=str(audit_log_path),
@@ -114,14 +110,6 @@ def test_redact_url_removes_embedded_credentials():
     assert _redact_url(None) is None
 
 
-def test_config_from_env_requires_explicit_write_enable(monkeypatch):
-    monkeypatch.delenv("WRITE_OPERATIONS_ENABLED", raising=False)
-    assert Config.from_env().write_operations_enabled is False
-
-    monkeypatch.setenv("WRITE_OPERATIONS_ENABLED", "true")
-    assert Config.from_env().write_operations_enabled is True
-
-
 async def test_health_reports_cscli_mode_without_samples(tmp_path, monkeypatch, caplog):
     audit_log = tmp_path / "audit.jsonl"
     client = CrowdSecClient(_config(audit_log))
@@ -187,8 +175,6 @@ async def test_health_lapi_failure_logs_sanitized_url(tmp_path, respx_mock, capl
             crowdsec_lapi_key="lapi-secret",
             crowdsec_lapi_machine_id=None,
             crowdsec_lapi_machine_password=None,
-            crowdsec_lapi_simulation_path_template="/v1/scenarios/{scenario}/simulation",
-            write_operations_enabled=False,
             cscli_path="cscli-test",
             default_window="24h",
             write_audit_log_path=str(tmp_path / "audit.jsonl"),
@@ -213,8 +199,6 @@ async def test_lapi_alerts_warn_when_machine_auth_missing(tmp_path, respx_mock, 
             crowdsec_lapi_key="bouncer-secret",
             crowdsec_lapi_machine_id=None,
             crowdsec_lapi_machine_password=None,
-            crowdsec_lapi_simulation_path_template="/v1/scenarios/{scenario}/simulation",
-            write_operations_enabled=False,
             cscli_path="cscli-test",
             default_window="24h",
             write_audit_log_path=str(tmp_path / "audit.jsonl"),
@@ -247,8 +231,6 @@ async def test_lapi_alerts_use_machine_auth(tmp_path, respx_mock):
             crowdsec_lapi_key="bouncer-secret",
             crowdsec_lapi_machine_id="mcp-machine",
             crowdsec_lapi_machine_password="machine-secret",
-            crowdsec_lapi_simulation_path_template="/v1/scenarios/{scenario}/simulation",
-            write_operations_enabled=False,
             cscli_path="cscli-test",
             default_window="24h",
             write_audit_log_path=str(tmp_path / "audit.jsonl"),
@@ -388,8 +370,6 @@ async def test_write_decision_does_not_run_fake_cscli_executable_even_when_execu
             crowdsec_lapi_key=None,
             crowdsec_lapi_machine_id=None,
             crowdsec_lapi_machine_password=None,
-            crowdsec_lapi_simulation_path_template="/v1/scenarios/{scenario}/simulation",
-            write_operations_enabled=False,
             cscli_path=str(fake_cscli),
             default_window="24h",
             write_audit_log_path=str(audit_log),
@@ -427,160 +407,81 @@ async def test_write_decision_rejects_invalid_ip_before_audit(tmp_path):
     assert not audit_log.exists()
 
 
-async def test_write_scenario_simulation_enables_through_machine_auth_api_and_audits(tmp_path, respx_mock):
+async def test_write_scenario_simulation_prepares_enable_command_and_audits(tmp_path):
     audit_log = tmp_path / "audit.jsonl"
-    client = CrowdSecClient(_lapi_config(audit_log))
-    respx_mock.post("http://crowdsec:8080/v1/watchers/login").respond(200, json={"token": "machine-token"})
-    simulation_route = respx_mock.post(
-        "http://crowdsec:8080/v1/scenarios/local%2Fsnort-misc-attack-repeat/simulation"
-    ).respond(200, json={"scenario": "local/snort-misc-attack-repeat", "simulation": True})
+    client = CrowdSecClient(_config(audit_log))
 
     result = await client.write_scenario_simulation(
         action="enable",
         scenario="local/snort-misc-attack-repeat",
         reason="new scenario should soak before remediation",
-        user_confirmation="confirm scenario simulation enable local/snort-misc-attack-repeat",
         execute=False,
     )
 
     assert result["intent_type"] == "scenario_simulation"
-    assert result["status"] == "applied"
+    assert result["status"] == "prepared"
     assert result["execute_requested"] is False
-    assert result["executed"] is True
-    assert result["method"] == "POST"
-    assert result["url"] == "http://crowdsec:8080/v1/scenarios/local%2Fsnort-misc-attack-repeat/simulation"
+    assert result["executed"] is False
+    assert result["command"] == ["cscli-test", "simulation", "enable", "local/snort-misc-attack-repeat"]
+    assert result["potential_cscli_command"] == "cscli-test simulation enable local/snort-misc-attack-repeat"
     assert result["scenario"] == "local/snort-misc-attack-repeat"
     assert result["reason"] == "new scenario should soak before remediation"
     assert result["auth_context"] == {
-        "lapi_machine_auth_configured": True,
-        "auth_mode": "lapi_machine",
-        "note": "CrowdSec scenario simulation is changed through the CrowdSec API with machine auth.",
+        "lapi_machine_auth_configured": False,
+        "command_auth_mode": "cscli_local_config",
+        "note": "CrowdSec scenario simulation is managed through cscli/local simulation configuration, not the bouncer decision API.",
     }
-    assert result["status_code"] == 200
-    assert result["response"] == {"scenario": "local/snort-misc-attack-repeat", "simulation": True}
-    assert simulation_route.called
-    assert simulation_route.calls[0].request.headers["authorization"] == "Bearer machine-token"
-    assert json.loads(simulation_route.calls[0].request.content) == {
-        "scenario": "local/snort-misc-attack-repeat",
-        "reason": "new scenario should soak before remediation",
-        "simulation": True,
-        "user_confirmation": "confirm scenario simulation enable local/snort-misc-attack-repeat",
-    }
+    assert "does not execute" in result["note"]
 
     entries = _audit_entries(audit_log)
-    assert len(entries) == 2
+    assert len(entries) == 1
     assert entries[0]["intent_type"] == "scenario_simulation"
     assert entries[0]["action"] == "enable"
-    assert entries[0]["status"] == "attempted"
-    assert entries[0]["executed"] is None
-    assert entries[1]["status"] == "applied"
-    assert entries[1]["executed"] is True
+    assert entries[0]["auth_context"]["lapi_machine_auth_configured"] is False
+    assert entries[0]["potential_cscli_command"] == result["potential_cscli_command"]
     assert "timestamp" in entries[0]
 
 
-async def test_write_scenario_simulation_disables_through_machine_auth_api(tmp_path, respx_mock):
+async def test_write_scenario_simulation_reports_machine_auth_context_and_still_only_prepares_disable_command(tmp_path):
     audit_log = tmp_path / "audit.jsonl"
-    client = CrowdSecClient(_lapi_config(audit_log))
-    respx_mock.post("http://crowdsec:8080/v1/watchers/login").respond(200, json={"token": "machine-token"})
-    simulation_route = respx_mock.delete(
-        "http://crowdsec:8080/v1/scenarios/crowdsecurity%2Fhttp-probing/simulation"
-    ).respond(204)
+    argv_log = tmp_path / "argv.txt"
+    fake_cscli = tmp_path / "cscli"
+    fake_cscli.write_text(
+        "#!/bin/sh\n"
+        "printf '%s\\n' \"$@\" > \"$ARGV_LOG\"\n"
+        "printf 'fake cscli ok\\n'\n",
+        encoding="utf-8",
+    )
+    fake_cscli.chmod(0o755)
+    client = CrowdSecClient(
+        Config(
+            crowdsec_lapi_url="http://crowdsec:8080",
+            crowdsec_lapi_key="bouncer-secret",
+            crowdsec_lapi_machine_id="mcp-machine",
+            crowdsec_lapi_machine_password="machine-secret",
+            cscli_path=str(fake_cscli),
+            default_window="24h",
+            write_audit_log_path=str(audit_log),
+        )
+    )
 
     result = await client.write_scenario_simulation(
         action="disable",
         scenario="crowdsecurity/http-probing",
         reason="simulation period was clean",
-        user_confirmation="confirm scenario simulation disable crowdsecurity/http-probing",
         execute=True,
     )
 
-    assert result["status"] == "applied"
+    assert result["status"] == "prepared"
     assert result["execute_requested"] is True
-    assert result["executed"] is True
+    assert result["executed"] is False
     assert result["auth_context"]["lapi_machine_auth_configured"] is True
-    assert result["auth_context"]["auth_mode"] == "lapi_machine"
-    assert result["method"] == "DELETE"
-    assert result["status_code"] == 204
-    assert result["response"] is None
-    assert simulation_route.called
+    assert result["auth_context"]["command_auth_mode"] == "cscli_local_config"
+    assert result["potential_cscli_command"].endswith(" simulation disable crowdsecurity/http-probing")
+    assert not argv_log.exists()
     entries = _audit_entries(audit_log)
-    assert entries[-1]["executed"] is True
+    assert entries[0]["executed"] is False
     assert entries[0]["auth_context"]["lapi_machine_auth_configured"] is True
-
-
-async def test_write_scenario_simulation_requires_machine_auth_before_audit(tmp_path):
-    audit_log = tmp_path / "audit.jsonl"
-    config = _config(audit_log)
-    client = CrowdSecClient(
-        Config(
-            crowdsec_lapi_url=config.crowdsec_lapi_url,
-            crowdsec_lapi_key=config.crowdsec_lapi_key,
-            crowdsec_lapi_machine_id=config.crowdsec_lapi_machine_id,
-            crowdsec_lapi_machine_password=config.crowdsec_lapi_machine_password,
-            crowdsec_lapi_simulation_path_template=config.crowdsec_lapi_simulation_path_template,
-            write_operations_enabled=True,
-            cscli_path=config.cscli_path,
-            default_window=config.default_window,
-            write_audit_log_path=config.write_audit_log_path,
-        )
-    )
-
-    with pytest.raises(RuntimeError, match="machine auth is required"):
-        await client.write_scenario_simulation(
-            action="enable",
-            scenario="local/snort-misc-attack-repeat",
-            reason="new scenario should soak before remediation",
-            user_confirmation="confirm scenario simulation enable local/snort-misc-attack-repeat",
-            execute=True,
-        )
-
-    assert not audit_log.exists()
-
-
-async def test_write_scenario_simulation_requires_write_enable_before_audit(tmp_path):
-    audit_log = tmp_path / "audit.jsonl"
-    config = _lapi_config(audit_log)
-    client = CrowdSecClient(
-        Config(
-            crowdsec_lapi_url=config.crowdsec_lapi_url,
-            crowdsec_lapi_key=config.crowdsec_lapi_key,
-            crowdsec_lapi_machine_id=config.crowdsec_lapi_machine_id,
-            crowdsec_lapi_machine_password=config.crowdsec_lapi_machine_password,
-            crowdsec_lapi_simulation_path_template=config.crowdsec_lapi_simulation_path_template,
-            write_operations_enabled=False,
-            cscli_path=config.cscli_path,
-            default_window=config.default_window,
-            write_audit_log_path=config.write_audit_log_path,
-        )
-    )
-
-    with pytest.raises(RuntimeError, match="WRITE_OPERATIONS_ENABLED=true"):
-        await client.write_scenario_simulation(
-            action="enable",
-            scenario="local/snort-misc-attack-repeat",
-            reason="new scenario should soak before remediation",
-            user_confirmation="confirm scenario simulation enable local/snort-misc-attack-repeat",
-            execute=True,
-        )
-
-    assert not audit_log.exists()
-
-
-async def test_write_scenario_simulation_requires_exact_user_confirmation_before_audit(tmp_path, respx_mock):
-    audit_log = tmp_path / "audit.jsonl"
-    client = CrowdSecClient(_lapi_config(audit_log))
-
-    with pytest.raises(RuntimeError, match="requires exact user_confirmation"):
-        await client.write_scenario_simulation(
-            action="enable",
-            scenario="local/snort-misc-attack-repeat",
-            reason="new scenario should soak before remediation",
-            user_confirmation="yes please",
-            execute=True,
-        )
-
-    assert not audit_log.exists()
-    assert not respx_mock.calls
 
 
 async def test_write_scenario_simulation_rejects_invalid_scenario_before_audit(tmp_path):
@@ -592,7 +493,6 @@ async def test_write_scenario_simulation_rejects_invalid_scenario_before_audit(t
             action="enable",
             scenario="local/scenario with spaces",
             reason="invalid input",
-            user_confirmation="confirm scenario simulation enable local/scenario with spaces",
             execute=False,
         )
 

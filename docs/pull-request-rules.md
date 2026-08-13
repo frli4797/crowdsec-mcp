@@ -15,8 +15,6 @@ Every PR must keep the project boundary clear: this MCP only accesses CrowdSec.
 - Link an issue for non-trivial changes. The issue may be opened by the contributor.
 - Use the pull request template.
 - Set a PR type: Feature, Fix, Chore, Docs, CI/CD, or Release.
-- Use a title matching `Feature|Fix|Chore|Docs|CI/CD|Release: short summary`.
-- Include the validator-required body sections every time: `## Summary`, `## Type`, and `## Validation`.
 - Include release-note text when the change is user-visible.
 - Include a Safety section when the change affects the MCP tool contract, credentials, network access, deployment permissions, or write-action behavior.
 - Dependabot dependency PRs are exempt from the manual PR template requirement.
@@ -27,10 +25,7 @@ Small docs fixes, typo fixes, dependency updates, and obvious CI maintenance do 
 
 - Do not add direct access to VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
 - Do not add bulk ban, bulk unban, delete-all, or broad mutation tools.
-- Keep IP decision write tools single-IP and prepare-only; the MCP must not execute IP decision mutations.
-- API write tools may execute only when they are narrow, gated by `WRITE_OPERATIONS_ENABLED=true`, machine-authenticated, and audited.
-- Require an exact `user_confirmation` phrase for any executed API write tool.
-- Keep scenario simulation writes single-scenario only.
+- Keep write actions single-IP and prepare-only; the MCP must not execute CrowdSec mutations.
 - Prefer supported CrowdSec API-level access over remote `cscli` execution for new capabilities.
 - Scenario, parser, and profile changes must be proposed, not applied automatically.
 
