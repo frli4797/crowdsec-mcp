@@ -40,11 +40,9 @@ cp docker-compose.example.yml docker-compose.yml
 
 ```bash
 CROWDSEC_LAPI_KEY=replace-with-your-lapi-key
-# Optional, required for recent alert lists and scenario simulation writes:
+# Optional, required only for recent alert lists:
 CROWDSEC_LAPI_MACHINE_ID=replace-with-machine-id
 CROWDSEC_LAPI_MACHINE_PASSWORD=replace-with-machine-password
-# Required before any read-write tool can mutate CrowdSec state:
-WRITE_OPERATIONS_ENABLED=false
 ```
 
 3. Confirm the CrowdSec URL and network in `docker-compose.yml`:
@@ -55,7 +53,6 @@ environment:
   CROWDSEC_LAPI_KEY: ${CROWDSEC_LAPI_KEY}
   CROWDSEC_LAPI_MACHINE_ID: ${CROWDSEC_LAPI_MACHINE_ID:-}
   CROWDSEC_LAPI_MACHINE_PASSWORD: ${CROWDSEC_LAPI_MACHINE_PASSWORD:-}
-  WRITE_OPERATIONS_ENABLED: ${WRITE_OPERATIONS_ENABLED:-false}
 networks:
   - security
 ```
@@ -172,35 +169,7 @@ Prepare a potential manual ban command:
 }
 ```
 
-Move a scenario into simulation:
-
-```json
-{
-  "tool": "enable_scenario_simulation",
-  "arguments": {
-    "scenario": "local/snort-misc-attack-repeat",
-    "reason": "new scenario should soak before remediation",
-    "user_confirmation": "confirm scenario simulation enable local/snort-misc-attack-repeat"
-  }
-}
-```
-
-Scenario simulation responses include an `auth_context` object. These tools require `WRITE_OPERATIONS_ENABLED=true`, use LAPI machine auth, and execute a narrow audited API write for one scenario. Before calling them, agents must ask the user to approve the exact confirmation phrase: `confirm scenario simulation <action> <scenario>`.
-
-The response includes the API method, redacted URL, status code, and appends attempted and applied records to the write audit log. The legacy `execute` flag is accepted for compatibility, but scenario simulation tools execute when called:
-
-```json
-{
-  "tool": "disable_scenario_simulation",
-  "arguments": {
-    "scenario": "local/snort-misc-attack-repeat",
-    "reason": "7d simulation period was clean and operator reviewed alerts",
-    "user_confirmation": "confirm scenario simulation disable local/snort-misc-attack-repeat"
-  }
-}
-```
-
-IP write tools are still prepare-only. The MCP does not execute IP decision commands, even if a legacy `execute` flag is sent:
+The response includes a `potential_cscli_command` and appends the prepared intent to the write audit log. The MCP does not execute the command, even if a legacy `execute` flag is sent:
 
 ```json
 {
@@ -214,51 +183,6 @@ IP write tools are still prepare-only. The MCP does not execute IP decision comm
 }
 ```
 
-## Example Simulation Prompts And Approvals
-
-Use this prompt shape when you want the agent to inspect context first and then ask for approval before changing simulation state:
-
-```text
-Review recent CrowdSec alerts for local/snort-misc-attack-repeat. If it is safe to keep testing, move it into simulation with reason "new scenario should soak before remediation". Before calling the write tool, ask me for the exact confirmation phrase.
-```
-
-The agent should stop and ask for exactly:
-
-```text
-confirm scenario simulation enable local/snort-misc-attack-repeat
-```
-
-Reply with only that phrase when you approve. The agent can then call:
-
-```json
-{
-  "tool": "enable_scenario_simulation",
-  "arguments": {
-    "scenario": "local/snort-misc-attack-repeat",
-    "reason": "new scenario should soak before remediation",
-    "user_confirmation": "confirm scenario simulation enable local/snort-misc-attack-repeat"
-  }
-}
-```
-
-For promoting a reviewed scenario out of simulation, use:
-
-```text
-Move local/snort-misc-attack-repeat out of simulation with reason "7d simulation period was clean and operator reviewed alerts". Ask me for the exact confirmation phrase before calling the write tool.
-```
-
-Approve with:
-
-```text
-confirm scenario simulation disable local/snort-misc-attack-repeat
-```
-
-To discuss the change without allowing a write, say so explicitly:
-
-```text
-Review whether local/snort-misc-attack-repeat should leave simulation. Explain the evidence and recommended reason, but do not call any write tool.
-```
-
 Docker remains the recommended deployment path for the first version. Target environments should pull the published GHCR image.
 
 Published image tags:
@@ -270,10 +194,7 @@ Published image tags:
 ## Safety Checklist
 
 - Prefer temporary allow entries over permanent allowlisting.
-- Keep `WRITE_OPERATIONS_ENABLED=false` unless you intentionally allow audited API write tools.
-- Scenario simulation tools execute API writes when `WRITE_OPERATIONS_ENABLED=true`; review the scenario name and reason, then require the exact confirmation phrase before calling them.
-- Review every prepared IP write command before running it manually outside the MCP.
-- Prefer supported CrowdSec API-level access for new capabilities; do not design around remote `cscli` execution when a supported API path exists.
+- Review every prepared write command before running it manually outside the MCP.
 - This MCP does not expose bulk ban, bulk unban, or delete-all tools.
 - This MCP does not directly access VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
 - Use separate tools for logs, metrics, and dashboards when broader investigations need evidence outside CrowdSec.

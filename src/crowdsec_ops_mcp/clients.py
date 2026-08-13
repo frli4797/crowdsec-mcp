@@ -10,7 +10,7 @@ import shlex
 import shutil
 import subprocess
 from typing import Any
-from urllib.parse import quote, urlsplit, urlunsplit
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
@@ -20,7 +20,6 @@ from .models import CrowdSecAlert, Decision
 logger = logging.getLogger(__name__)
 
 WRITE_ACTIONS = {"ban", "unban", "whitelist"}
-SIMULATION_ACTIONS = {"enable", "disable"}
 
 
 class CrowdSecClient:
@@ -64,7 +63,6 @@ class CrowdSecClient:
             "backend_mode": self.mode,
             "lapi": lapi,
             "alert_auth": alert_auth,
-            "scenario_simulation_api": self._scenario_simulation_api_health(),
             "cscli": cscli,
             "default_window": self.config.default_window,
             "write_audit_log_path": self.config.write_audit_log_path,
@@ -170,17 +168,6 @@ class CrowdSecClient:
             status["relevant"],
         )
         return status
-
-    def _scenario_simulation_api_health(self) -> dict[str, Any]:
-        return {
-            "mode": "lapi_machine",
-            "configured": self.config.write_operations_enabled and self._machine_auth_configured(),
-            "write_operations_enabled": self.config.write_operations_enabled,
-            "machine_auth_configured": self._machine_auth_configured(),
-            "path_template": self.config.crowdsec_lapi_simulation_path_template,
-            "method_enable": "POST",
-            "method_disable": "DELETE",
-        }
 
     async def _sample_counts(self) -> dict[str, Any]:
         counts: dict[str, Any] = {
@@ -365,79 +352,6 @@ class CrowdSecClient:
         logger.debug("Prepared potential CrowdSec decision command: command=%s", command)
         return summary
 
-    async def write_scenario_simulation(
-        self,
-        action: str,
-        scenario: str,
-        reason: str,
-        user_confirmation: str,
-        execute: bool,
-    ) -> dict[str, Any]:
-        _validate_simulation_action(action)
-        scenario = _validate_scenario_name(scenario)
-        expected_confirmation = _scenario_simulation_confirmation(action, scenario)
-        if user_confirmation != expected_confirmation:
-            raise RuntimeError(f'CrowdSec scenario simulation write requires exact user_confirmation: "{expected_confirmation}"')
-        if not self.config.write_operations_enabled:
-            raise RuntimeError("CrowdSec write operations are disabled; set WRITE_OPERATIONS_ENABLED=true to allow scenario simulation writes")
-        if not self._machine_auth_configured():
-            raise RuntimeError("CrowdSec LAPI machine auth is required for scenario simulation writes")
-        url = self._scenario_simulation_url(scenario)
-        method = "POST" if action == "enable" else "DELETE"
-        summary = {
-            "intent_type": "scenario_simulation",
-            "execute_requested": execute,
-            "executed": None,
-            "method": method,
-            "url": _redact_url(url),
-            "scenario": scenario,
-            "action": action,
-            "reason": reason,
-            "user_confirmation": user_confirmation,
-            "auth_context": {
-                "lapi_machine_auth_configured": self._machine_auth_configured(),
-                "auth_mode": "lapi_machine",
-                "note": "CrowdSec scenario simulation is changed through the CrowdSec API with machine auth.",
-            },
-            "status": "attempted",
-            "note": "This is an audited read-write CrowdSec scenario simulation operation. The legacy execute flag is accepted for compatibility and does not gate execution.",
-        }
-        self._audit_write(summary)
-        token = await self._machine_token()
-        async with httpx.AsyncClient(timeout=20) as client:
-            res = await client.request(
-                method,
-                url,
-                headers={"Authorization": f"Bearer {token}"},
-                json={
-                    "scenario": scenario,
-                    "reason": reason,
-                    "simulation": action == "enable",
-                    "user_confirmation": user_confirmation,
-                },
-            )
-            res.raise_for_status()
-        summary.update(
-            {
-                "executed": True,
-                "status": "applied",
-                "status_code": res.status_code,
-                "response": _safe_json(res),
-            }
-        )
-        self._audit_write(summary)
-        logger.info("Applied CrowdSec scenario simulation through LAPI: action=%s scenario=%s", action, scenario)
-        return summary
-
-    def _scenario_simulation_url(self, scenario: str) -> str:
-        if not self.config.crowdsec_lapi_url:
-            raise RuntimeError("CrowdSec LAPI URL is required for scenario simulation writes")
-        encoded_scenario = quote(scenario, safe="")
-        path = self.config.crowdsec_lapi_simulation_path_template.format(scenario=encoded_scenario)
-        if not path.startswith("/"):
-            path = f"/{path}"
-        return f"{self.config.crowdsec_lapi_url.rstrip('/')}{path}"
-
     def _audit_write(self, entry: dict[str, Any]) -> None:
         path = Path(self.config.write_audit_log_path)
         if path.parent != Path("."):
@@ -458,32 +372,11 @@ def _validate_write_action(action: str) -> None:
         raise ValueError(f"Unsupported CrowdSec write action: {action}")
 
 
-def _validate_simulation_action(action: str) -> None:
-    if action not in SIMULATION_ACTIONS:
-        raise ValueError(f"Unsupported CrowdSec scenario simulation action: {action}")
-
-
 def _validate_ip(ip: str) -> str:
     try:
         return str(ipaddress.ip_address(ip))
     except ValueError as exc:
         raise ValueError(f"Invalid IP address for CrowdSec write action: {ip}") from exc
-
-
-def _validate_scenario_name(scenario: str) -> str:
-    scenario = scenario.strip()
-    if not scenario:
-        raise ValueError("CrowdSec scenario name is required")
-    if scenario.startswith("-") or any(char.isspace() for char in scenario):
-        raise ValueError(f"Invalid CrowdSec scenario name: {scenario}")
-    allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_./:@+-")
-    if any(char not in allowed for char in scenario):
-        raise ValueError(f"Invalid CrowdSec scenario name: {scenario}")
-    return scenario
-
-
-def _scenario_simulation_confirmation(action: str, scenario: str) -> str:
-    return f"confirm scenario simulation {action} {scenario}"
 
 
 def _decision_from_lapi(item: dict[str, Any]) -> Decision:
@@ -551,15 +444,6 @@ def _response_rows(response: httpx.Response) -> list[dict[str, Any]]:
     except ValueError:
         return []
     return _alert_rows_from_response(payload)
-
-
-def _safe_json(response: httpx.Response) -> Any:
-    if not response.content:
-        return None
-    try:
-        return response.json()
-    except ValueError:
-        return None
 
 
 def _filter_alerts_by_ip(alerts: list[CrowdSecAlert], ip: str | None) -> list[CrowdSecAlert]:

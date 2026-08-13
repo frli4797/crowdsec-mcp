@@ -24,11 +24,6 @@ def _schema(properties: dict, required: list[str] | None = None) -> dict:
 
 WINDOW = {"type": "string", "description": "Lookback window such as 15m, 6h, 24h, 7d."}
 IP = {"type": "string", "description": "IPv4 or IPv6 address to inspect or operate on."}
-SCENARIO = {"type": "string", "description": "CrowdSec scenario name, such as local/snort-misc-attack-repeat."}
-USER_CONFIRMATION = {
-    "type": "string",
-    "description": 'Exact confirmation phrase required before a scenario simulation write, such as "confirm scenario simulation enable local/snort-misc-attack-repeat".',
-}
 LIMIT = {"type": "integer", "default": 20, "minimum": 0, "maximum": 100}
 REPEAT_THRESHOLD = {
     "type": "integer",
@@ -45,7 +40,7 @@ NOISY_SCENARIO_THRESHOLD = {
 EXECUTE = {
     "type": "boolean",
     "default": False,
-    "description": "Legacy compatibility flag. IP decision tools ignore it; scenario simulation tools execute audited API writes.",
+    "description": "Legacy no-op flag. The MCP never executes writes; it only prepares an audited potential cscli command.",
 }
 INCLUDE_SAMPLE_COUNTS = {
     "type": "boolean",
@@ -138,22 +133,6 @@ TOOL_DEFS = [
         inputSchema=_schema(
             {"ip": IP, "duration": {"type": "string", "default": "4h"}, "reason": {"type": "string"}, "execute": EXECUTE},
             ["ip", "reason"],
-        ),
-    ),
-    types.Tool(
-        name="enable_scenario_simulation",
-        description="Move one CrowdSec scenario into simulation through the CrowdSec API with machine auth and audit the write.",
-        inputSchema=_schema(
-            {"scenario": SCENARIO, "reason": {"type": "string"}, "user_confirmation": USER_CONFIRMATION, "execute": EXECUTE},
-            ["scenario", "reason", "user_confirmation"],
-        ),
-    ),
-    types.Tool(
-        name="disable_scenario_simulation",
-        description="Move one CrowdSec scenario out of simulation through the CrowdSec API with machine auth and audit the write.",
-        inputSchema=_schema(
-            {"scenario": SCENARIO, "reason": {"type": "string"}, "user_confirmation": USER_CONFIRMATION, "execute": EXECUTE},
-            ["scenario", "reason", "user_confirmation"],
         ),
     ),
 ]
@@ -266,26 +245,6 @@ async def ban_ip(
     return await ops.write_action("ban", ip, duration, reason, execute)
 
 
-async def enable_scenario_simulation(
-    scenario: str,
-    reason: str,
-    user_confirmation: str,
-    execute: bool | None = None,
-) -> dict:
-    """Move one CrowdSec scenario into simulation through the CrowdSec API with machine auth."""
-    return await ops.scenario_simulation_action("enable", scenario, reason, user_confirmation, execute)
-
-
-async def disable_scenario_simulation(
-    scenario: str,
-    reason: str,
-    user_confirmation: str,
-    execute: bool | None = None,
-) -> dict:
-    """Move one CrowdSec scenario out of simulation through the CrowdSec API with machine auth."""
-    return await ops.scenario_simulation_action("disable", scenario, reason, user_confirmation, execute)
-
-
 async def list_tools(_ctx: object, _params: types.PaginatedRequestParams | None) -> types.ListToolsResult:
     logger.debug("Client requested tool list")
     return types.ListToolsResult(tools=TOOL_DEFS)
@@ -306,8 +265,6 @@ async def call_tool(_ctx: object, params: types.CallToolRequestParams) -> types.
         "unban_ip": unban_ip,
         "allow_ip": allow_ip,
         "ban_ip": ban_ip,
-        "enable_scenario_simulation": enable_scenario_simulation,
-        "disable_scenario_simulation": disable_scenario_simulation,
     }
     name = params.name
     logger.debug("Client called tool: name=%s args=%s", name, args)
