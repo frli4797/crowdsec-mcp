@@ -15,7 +15,9 @@ Use `decision_gap_report` when you want to compare active CrowdSec decisions wit
 
 The response includes:
 
-- `summary` counts for active decisions, recent alerts, and each finding type
+- `summary` counts for active decisions, actionable recent alerts, and each finding type
+- `alert_accounting`, which separates raw CrowdSec alert count, actionable alert count, and maintenance or otherwise non-actionable alert examples
+- `alert_visibility`, which reports whether alert lists were available and which auth mode was used
 - `findings.repeated_alerts_without_decision`
 - `findings.active_decisions_without_recent_alerts`
 - `findings.expiring_decisions_with_recent_alerts`
@@ -39,4 +41,4 @@ The response includes:
 }
 ```
 
-Use stricter thresholds during noisy periods or broader windows. The tool only reports evidence and recommendations; it does not prepare or execute write actions.
+Use stricter thresholds during noisy periods or broader windows. Thresholds apply to actionable alerts only; maintenance/update alerts remain visible in `alert_accounting` but do not drive findings. The tool only reports evidence and recommendations; it does not prepare or execute write actions.

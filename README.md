@@ -4,7 +4,7 @@
 
 It exposes CrowdSec decisions, alerts, summaries, safe single-IP action proposals, and scenario simulation proposals to MCP clients. It is intentionally CrowdSec-only: it does not connect to VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
 
-Supported runtime reads use CrowdSec LAPI. Actual `cscli` reads or `cscli` execution are not supported by the MCP today; write tools only generate `cscli` command text for an operator to review and run outside the MCP if appropriate.
+Supported runtime reads use CrowdSec LAPI. Decision reads use a bouncer API key. Alert reads require optional CrowdSec machine credentials because bouncer keys can only read decisions. Actual `cscli` reads or `cscli` execution are not supported by the MCP today; write tools only generate `cscli` command text for an operator to review and run outside the MCP if appropriate.
 
 ## Contents
 
@@ -55,8 +55,10 @@ See [docs/decision-gap-report-example.md](docs/decision-gap-report-example.md) f
 
 | Variable | Purpose |
 | --- | --- |
-| `CROWDSEC_LAPI_URL` | CrowdSec LAPI base URL. Required for supported read operation. |
+| `CROWDSEC_LAPI_URL` | CrowdSec LAPI base URL. Required for supported read operations. |
 | `CROWDSEC_LAPI_KEY` | CrowdSec LAPI key for decision reads. |
+| `CROWDSEC_LAPI_MACHINE_ID` | Optional CrowdSec machine ID for read-only alert list access. |
+| `CROWDSEC_LAPI_MACHINE_PASSWORD` | Optional CrowdSec machine password for read-only alert list access. |
 | `CSCLI_PATH` | Command name/path used only when formatting prepared `potential_cscli_command` text. The MCP does not run `cscli`. |
 | `DEFAULT_WINDOW` | Default lookback window, defaults to `24h`. |
 | `WRITE_AUDIT_LOG_PATH` | JSON Lines audit trail for prepared write intents, defaults to `crowdsec-write-audit.jsonl`. |

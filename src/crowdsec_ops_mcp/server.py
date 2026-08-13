@@ -94,7 +94,7 @@ TOOL_DEFS = [
     ),
     types.Tool(
         name="recent_crowdsec_alerts",
-        description="Return recent CrowdSec alerts.",
+        description="Return recent CrowdSec alerts and alert visibility status. LAPI alert lists require machine auth.",
         inputSchema=_schema({"window": WINDOW}),
     ),
     types.Tool(
@@ -194,9 +194,14 @@ async def decision_inventory(
     )
 
 
-async def recent_crowdsec_alerts(window: str | None = None) -> list[dict]:
-    """Return recent CrowdSec alerts."""
-    return [a.model_dump() for a in await ops.crowdsec.alerts(window=window)]
+async def recent_crowdsec_alerts(window: str | None = None) -> dict:
+    """Return recent CrowdSec alerts and alert visibility status."""
+    result = await ops.crowdsec.alerts_with_status(window=window)
+    return {
+        "window": result["window"],
+        "alert_visibility": result["status"],
+        "alerts": [a.model_dump() for a in result["alerts"]],
+    }
 
 
 async def decision_gap_report(
