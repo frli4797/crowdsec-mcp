@@ -25,6 +25,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Python
+        id: setup-python
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -33,10 +34,10 @@ jobs:
 
       - name: Cache Python environment
         id: cache-venv
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .venv
-          key: ${{ runner.os }}-python-3.12-venv-${{ hashFiles('pyproject.toml') }}
+          key: ${{ runner.os }}-python-${{ steps.setup-python.outputs.python-version }}-venv-${{ hashFiles('pyproject.toml') }}
 
       - name: Install dependencies
         if: steps.cache-venv.outputs.cache-hit != 'true'
