@@ -29,7 +29,8 @@ For IP investigations, collect and report:
 For posture reviews, collect and report:
 
 - active decision count
-- recent alert count
+- recent actionable alert count
+- raw recent alert count and non-actionable alert count when available
 - top source IPs
 - top countries and ASNs
 - top CrowdSec scenarios
@@ -68,7 +69,7 @@ Investigate 203.0.113.10 for the last 24h. Use crowdsec-ops-mcp only for CrowdSe
 Review current CrowdSec posture:
 
 ```text
-Summarize CrowdSec activity for the last 24h. Include active decision count, recent alert count, top source IPs, top countries/ASNs, top scenarios, and suspicious trends. Keep the answer focused on CrowdSec data only.
+Summarize CrowdSec activity for the last 24h. Include active decision count, raw and actionable recent alert counts, top source IPs, top countries/ASNs, top scenarios, non-actionable alert examples if present, and suspicious trends. Keep the answer focused on CrowdSec data only.
 ```
 
 Prepare a safe ban:

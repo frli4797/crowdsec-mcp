@@ -32,13 +32,14 @@ Status: partially implemented.
 Implemented:
 
 - LAPI-backed `decisions()` and machine-auth `alerts()` have representative tests.
+- decision reads tolerate empty LAPI responses, and IP-specific alert reads are filtered defensively client-side.
 - health reporting covers LAPI reachability and sample-count behavior.
 - logging stays on stderr so stdio transport remains valid.
 
 Remaining work:
 
 - decide whether to remove dormant `cscli` read fallback code or promote it to a documented, tested feature later
-- keep response behavior stable when CrowdSec returns sparse or partially missing fields
+- continue broadening sparse-field coverage as more real CrowdSec response variants are observed
 
 ### 2. Add a CrowdSec Health Tool
 
