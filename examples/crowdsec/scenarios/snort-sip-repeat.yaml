@@ -1,0 +1,25 @@
+type: leaky
+name: local/snort-sip-repeat
+description: "Repeated Snort SIPVicious or SIP scan alerts from one source IP"
+filter: >-
+  evt.Line.Labels.type == 'snort' &&
+  evt.Meta.source_ip != '' &&
+  (
+    evt.Meta.target_port == '5060' ||
+    evt.Parsed.snort_message contains 'Sipvicious' ||
+    evt.Parsed.snort_message contains 'friendly-scanner'
+  )
+groupby: evt.Meta.source_ip
+distinct: evt.Parsed.sid + ":" + evt.Meta.target_ip + ":" + evt.Meta.target_port + ":" + evt.Parsed.src_port
+capacity: 6
+leakspeed: "10m"
+blackhole: "30m"
+labels:
+  remediation: true
+  classification:
+    - attack.T1595
+  behavior: "sip:scan"
+  label: "Snort SIP scan repeat"
+  service: udp
+  confidence: 2
+  spoofable: 0

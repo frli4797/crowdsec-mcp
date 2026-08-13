@@ -1,0 +1,31 @@
+name: local/snort-alerts
+description: "Parse Snort alert messages into CrowdSec events"
+filter: "evt.Line.Labels.type == 'snort'"
+onsuccess: next_stage
+pattern_syntax:
+  SNORT_ALERT: "\\[%{NUMBER:gid}:%{NUMBER:sid}:%{NUMBER:rev}\\]\\s+%{DATA:snort_message}\\s+\\[Classification: %{DATA:classification}\\]\\s+\\[Priority: %{NUMBER:priority}\\]\\s+\\{%{WORD:proto}\\}\\s+%{IP:src_ip}(?::%{NUMBER:src_port})?\\s+->\\s+%{IP:dst_ip}(?::%{NUMBER:dst_port})?"
+nodes:
+  - grok:
+      pattern: "^%{SNORT_ALERT}$"
+      apply_on: Line.Raw
+      statics:
+        - meta: log_type
+          value: snort_alert
+        - meta: service
+          value: snort
+        - meta: source_ip
+          expression: evt.Parsed.src_ip
+        - meta: target_ip
+          expression: evt.Parsed.dst_ip
+        - meta: target_port
+          expression: evt.Parsed.dst_port
+        - meta: protocol
+          expression: evt.Parsed.proto
+        - meta: scenario
+          expression: evt.Parsed.classification
+        - parsed: priority
+          expression: evt.Parsed.priority
+        - parsed: classification
+          expression: evt.Parsed.classification
+        - parsed: snort_message
+          expression: evt.Parsed.snort_message

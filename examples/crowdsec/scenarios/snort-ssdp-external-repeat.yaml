@@ -1,0 +1,23 @@
+type: leaky
+name: local/snort-ssdp-external-repeat
+description: "Repeated external SSDP amplification scan alerts, excluding known local WAN noise"
+filter: >-
+  evt.Line.Labels.type == 'snort' &&
+  evt.Meta.source_ip != '' &&
+  evt.Parsed.sid == '2019102' &&
+  evt.Meta.source_ip != evt.Meta.local_wan_ip &&
+  evt.Meta.target_ip != evt.Meta.wan_gateway_ip
+groupby: evt.Meta.source_ip
+distinct: evt.Parsed.sid + ":" + evt.Meta.target_ip + ":" + evt.Meta.target_port + ":" + evt.Parsed.src_port
+capacity: 20
+leakspeed: "10m"
+blackhole: "30m"
+labels:
+  remediation: false
+  classification:
+    - attack.T1498
+  behavior: "udp:amplification"
+  label: "Snort external SSDP repeat"
+  service: udp
+  confidence: 1
+  spoofable: 1

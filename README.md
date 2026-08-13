@@ -65,6 +65,7 @@ See [docs/decision-gap-report-example.md](docs/decision-gap-report-example.md) f
 - [CHANGELOG.md](CHANGELOG.md): version history
 - [docs/decision-inventory-example.md](docs/decision-inventory-example.md): example `decision_inventory` tool calls
 - [docs/decision-gap-report-example.md](docs/decision-gap-report-example.md): example `decision_gap_report` tool calls
+- [docs/snort-crowdsec-scenarios.md](docs/snort-crowdsec-scenarios.md): example CrowdSec scenarios for Snort-derived alert patterns
 - [docs/agent-usage.md](docs/agent-usage.md): agent prompt patterns and investigation guidance
 - [docs/development.md](docs/development.md): local development workflow
 - [docs/roadmap.md](docs/roadmap.md): project roadmap

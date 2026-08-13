@@ -1,0 +1,21 @@
+type: leaky
+name: local/snort-misc-attack-repeat
+description: "Repeated Snort ET compromised or hostile-host alerts from one source IP"
+filter: >-
+  evt.Line.Labels.type == 'snort' &&
+  evt.Meta.source_ip != '' &&
+  evt.Parsed.classification == 'Misc Attack'
+groupby: evt.Meta.source_ip
+distinct: evt.Parsed.sid + ":" + evt.Meta.target_ip + ":" + evt.Meta.target_port + ":" + evt.Parsed.src_port
+capacity: 3
+leakspeed: "10m"
+blackhole: "30m"
+labels:
+  remediation: true
+  service: snort
+  confidence: 3
+  spoofable: 0
+  classification:
+    - attack.T1595
+  behavior: "generic:scan"
+  label: "Snort ET hostile host repeat"
