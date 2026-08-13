@@ -1,5 +1,28 @@
 # Version History
 
+## v0.3.0 - 2026-08-13
+
+### Added
+
+- Added `decision_gap_report(...)`, a read-only report for repeated alerts without active decisions, stale decisions, expiring decisions with recent alerts, noisy scenarios, and repeat offenders below threshold.
+- Added example `decision_gap_report` documentation.
+- Added Snort-derived CrowdSec parser, scenario, notification, and profile-snippet examples for operator-reviewed deployments outside the MCP.
+- Added a target-host installer script for pulling the Snort/CrowdSec examples from a raw Git repository URL.
+- Added optional advisory agentic PR review workflow support.
+
+### Changed
+
+- Updated roadmap and README documentation to include `decision_gap_report`.
+- Documented issue-first contribution expectations and advisory code-review behavior.
+- Kept Snort, VictoriaMetrics, and notification examples explicitly outside the MCP runtime integration boundary.
+
+### Security And Safety
+
+- CrowdSec-only MCP boundary is unchanged.
+- Write actions remain single-IP, prepare-only, and audited.
+- No MCP-executed CrowdSec mutations are introduced.
+- New scenario/profile examples are deployment artifacts for operator review; the MCP does not install, reload, or mutate CrowdSec configuration.
+
 ## v0.2.1 - 2026-07-28
 
 ### Changed
