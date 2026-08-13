@@ -52,7 +52,7 @@ See [docs/decision-gap-report-example.md](docs/decision-gap-report-example.md) f
 
 | Variable | Purpose |
 | --- | --- |
-| `CROWDSEC_LAPI_URL` | CrowdSec LAPI base URL. Required for supported read operation. |
+| `CROWDSEC_LAPI_URL` | CrowdSec LAPI base URL. Required for supported read operations. |
 | `CROWDSEC_LAPI_KEY` | CrowdSec LAPI key for decision reads. |
 | `CROWDSEC_LAPI_MACHINE_ID` | Optional CrowdSec machine ID for read-only alert list access. |
 | `CROWDSEC_LAPI_MACHINE_PASSWORD` | Optional CrowdSec machine password for read-only alert list access. |
