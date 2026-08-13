@@ -25,6 +25,18 @@ def _schema(properties: dict, required: list[str] | None = None) -> dict:
 WINDOW = {"type": "string", "description": "Lookback window such as 15m, 6h, 24h, 7d."}
 IP = {"type": "string", "description": "IPv4 or IPv6 address to inspect or operate on."}
 LIMIT = {"type": "integer", "default": 20, "minimum": 0, "maximum": 100}
+REPEAT_THRESHOLD = {
+    "type": "integer",
+    "default": 3,
+    "minimum": 1,
+    "description": "Alert count threshold for repeated source IP findings.",
+}
+NOISY_SCENARIO_THRESHOLD = {
+    "type": "integer",
+    "default": 10,
+    "minimum": 1,
+    "description": "Alert count threshold for noisy scenario findings.",
+}
 EXECUTE = {
     "type": "boolean",
     "default": False,
@@ -83,6 +95,19 @@ TOOL_DEFS = [
         name="recent_crowdsec_alerts",
         description="Return recent CrowdSec alerts.",
         inputSchema=_schema({"window": WINDOW}),
+    ),
+    types.Tool(
+        name="decision_gap_report",
+        description="Compare active CrowdSec decisions with recent alerts and return read-only attention findings.",
+        inputSchema=_schema(
+            {
+                "window": WINDOW,
+                "repeat_threshold": REPEAT_THRESHOLD,
+                "noisy_scenario_threshold": NOISY_SCENARIO_THRESHOLD,
+                "expiring_soon_hours": {"type": "integer", "default": 24, "minimum": 0},
+                "limit": LIMIT,
+            }
+        ),
     ),
     types.Tool(
         name="suggest_scenario",
@@ -163,6 +188,23 @@ async def recent_crowdsec_alerts(window: str | None = None) -> list[dict]:
     return [a.model_dump() for a in await ops.crowdsec.alerts(window=window)]
 
 
+async def decision_gap_report(
+    window: str | None = None,
+    repeat_threshold: int = 3,
+    noisy_scenario_threshold: int = 10,
+    expiring_soon_hours: int = 24,
+    limit: int = 20,
+) -> dict:
+    """Compare active CrowdSec decisions with recent alerts and return read-only attention findings."""
+    return await ops.decision_gap_report(
+        window=window,
+        repeat_threshold=repeat_threshold,
+        noisy_scenario_threshold=noisy_scenario_threshold,
+        expiring_soon_hours=expiring_soon_hours,
+        limit=limit,
+    )
+
+
 async def suggest_scenario(window: str | None = None) -> dict:
     """Suggest a CrowdSec scenario proposal from repeated CrowdSec patterns."""
     return await ops.suggest_scenario(window)
@@ -213,6 +255,7 @@ async def call_tool(_ctx: object, params: types.CallToolRequestParams) -> types.
         "recent_crowdsec_decisions": recent_crowdsec_decisions,
         "decision_inventory": decision_inventory,
         "recent_crowdsec_alerts": recent_crowdsec_alerts,
+        "decision_gap_report": decision_gap_report,
         "suggest_scenario": suggest_scenario,
         "unban_ip": unban_ip,
         "allow_ip": allow_ip,
