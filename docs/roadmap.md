@@ -9,6 +9,7 @@ The server now has a useful read-side foundation:
 - `crowdsec_health` explains backend mode, LAPI reachability, `cscli` path diagnostics, configured defaults, write-audit path, and exposed capabilities.
 - `decision_inventory` summarizes active decisions with filters, grouped counts, expiry views, long-lived/stale views, and representative rows.
 - write tools are prepare-only and audited; the legacy `execute` flag is accepted but does not mutate CrowdSec state.
+- scenario simulation tools prepare audited commands to move one scenario into or out of simulation, without executing CrowdSec changes.
 
 Supported runtime reads use CrowdSec LAPI. Actual `cscli` reads and `cscli` execution are not supported today. `cscli` appears in current behavior only as prepared command text returned for human review.
 
@@ -213,7 +214,7 @@ This gives operators:
 - a concrete command to review
 - a record of write intent
 - a safe path for local MCP testing
-- a narrow single-IP surface for future execution
+- a narrow single-IP decision surface and single-scenario simulation surface for future execution review
 
 The audit log path is configured with:
 
@@ -222,6 +223,31 @@ WRITE_AUDIT_LOG_PATH
 ```
 
 For containerized Codex MCP usage, prefer a host-mounted audit directory so logs survive `docker compose run --rm`.
+
+### Scenario Simulation Intents
+
+Status: implemented as `enable_scenario_simulation(...)` and `disable_scenario_simulation(...)`.
+
+Scenario simulation moves are treated as prepared operator intents, not executed mutations. They generate:
+
+```bash
+cscli simulation enable <scenario>
+cscli simulation disable <scenario>
+```
+
+The tools require one scenario name and a human-readable reason. They append to the same JSON Lines write-audit log as IP decision intents and return `executed=false`, including when a legacy `execute=true` flag is supplied.
+
+This is useful for:
+
+- putting newly installed or newly tuned scenarios into simulation first
+- promoting a reviewed scenario out of simulation after a clean soak period
+- rolling a noisy scenario back into simulation while preserving an audit trail
+
+Remaining useful follow-up:
+
+- expose recent scenario simulation intents through the future `recent_write_intents` read-only audit tool
+- decide whether future execution should use `cscli` with machine credentials or direct LAPI machine-auth writes
+- keep any future execution single-scenario only, with explicit reason and audit records before and after execution
 
 ### Future Execution Options
 
@@ -241,6 +267,8 @@ The proposed write execution path would use:
 ```bash
 cscli decisions add --ip <ip> --type ban --reason <reason> --duration <duration>
 cscli decisions delete --ip <ip>
+cscli simulation enable <scenario>
+cscli simulation disable <scenario>
 ```
 
 This would require `cscli` to be available inside the MCP runtime environment.
@@ -308,11 +336,12 @@ Cons:
 
 Any future write execution should keep these constraints:
 
-- single IP only
+- decision writes are single-IP only
+- scenario simulation writes are single-scenario only
 - no IP ranges
 - no bulk ban or bulk unban
 - no delete-all operation
-- required reason for ban
+- required reason for ban, allow, unban, and scenario simulation changes
 - explicit `execute=true` for mutation
 - prepared command returned even when executed
 - audit entry before execution
