@@ -262,3 +262,84 @@ async def test_write_decision_rejects_invalid_ip_before_audit(tmp_path):
         )
 
     assert not audit_log.exists()
+
+
+async def test_write_scenario_simulation_prepares_enable_command_and_audits(tmp_path):
+    audit_log = tmp_path / "audit.jsonl"
+    client = CrowdSecClient(_config(audit_log))
+
+    result = await client.write_scenario_simulation(
+        action="enable",
+        scenario="local/snort-misc-attack-repeat",
+        reason="new scenario should soak before remediation",
+        execute=False,
+    )
+
+    assert result["intent_type"] == "scenario_simulation"
+    assert result["status"] == "prepared"
+    assert result["execute_requested"] is False
+    assert result["executed"] is False
+    assert result["command"] == ["cscli-test", "simulation", "enable", "local/snort-misc-attack-repeat"]
+    assert result["potential_cscli_command"] == "cscli-test simulation enable local/snort-misc-attack-repeat"
+    assert result["scenario"] == "local/snort-misc-attack-repeat"
+    assert result["reason"] == "new scenario should soak before remediation"
+    assert "does not execute" in result["note"]
+
+    entries = _audit_entries(audit_log)
+    assert len(entries) == 1
+    assert entries[0]["intent_type"] == "scenario_simulation"
+    assert entries[0]["action"] == "enable"
+    assert entries[0]["potential_cscli_command"] == result["potential_cscli_command"]
+    assert "timestamp" in entries[0]
+
+
+async def test_write_scenario_simulation_execute_true_still_only_prepares_disable_command(tmp_path):
+    audit_log = tmp_path / "audit.jsonl"
+    argv_log = tmp_path / "argv.txt"
+    fake_cscli = tmp_path / "cscli"
+    fake_cscli.write_text(
+        "#!/bin/sh\n"
+        "printf '%s\\n' \"$@\" > \"$ARGV_LOG\"\n"
+        "printf 'fake cscli ok\\n'\n",
+        encoding="utf-8",
+    )
+    fake_cscli.chmod(0o755)
+    client = CrowdSecClient(
+        Config(
+            crowdsec_lapi_url=None,
+            crowdsec_lapi_key=None,
+            cscli_path=str(fake_cscli),
+            default_window="24h",
+            write_audit_log_path=str(audit_log),
+        )
+    )
+
+    result = await client.write_scenario_simulation(
+        action="disable",
+        scenario="crowdsecurity/http-probing",
+        reason="simulation period was clean",
+        execute=True,
+    )
+
+    assert result["status"] == "prepared"
+    assert result["execute_requested"] is True
+    assert result["executed"] is False
+    assert result["potential_cscli_command"].endswith(" simulation disable crowdsecurity/http-probing")
+    assert not argv_log.exists()
+    entries = _audit_entries(audit_log)
+    assert entries[0]["executed"] is False
+
+
+async def test_write_scenario_simulation_rejects_invalid_scenario_before_audit(tmp_path):
+    audit_log = tmp_path / "audit.jsonl"
+    client = CrowdSecClient(_config(audit_log))
+
+    with pytest.raises(ValueError, match="Invalid CrowdSec scenario name"):
+        await client.write_scenario_simulation(
+            action="enable",
+            scenario="local/scenario with spaces",
+            reason="invalid input",
+            execute=False,
+        )
+
+    assert not audit_log.exists()

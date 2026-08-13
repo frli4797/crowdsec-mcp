@@ -2,7 +2,7 @@
 
 `crowdsec-ops-mcp` is a local MCP server for CrowdSec operations.
 
-It exposes CrowdSec decisions, alerts, summaries, and safe single-IP action proposals to MCP clients. It is intentionally CrowdSec-only: it does not connect to VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
+It exposes CrowdSec decisions, alerts, summaries, safe single-IP action proposals, and scenario simulation proposals to MCP clients. It is intentionally CrowdSec-only: it does not connect to VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
 
 Supported runtime reads use CrowdSec LAPI. Actual `cscli` reads or `cscli` execution are not supported by the MCP today; write tools only generate `cscli` command text for an operator to review and run outside the MCP if appropriate.
 
@@ -22,8 +22,9 @@ Supported runtime reads use CrowdSec LAPI. Actual `cscli` reads or `cscli` execu
 - Find top offending source IPs.
 - Generate scenario-tuning proposals from repeated alert patterns.
 - Prepare audited single-IP ban, allow, or unban commands for manual review.
+- Prepare audited commands to move one scenario into or out of simulation for manual review.
 
-Write tools do not execute CrowdSec changes. They validate a single IP, prepare a plausible `cscli` command for an operator to review, append the prepared intent to the JSON Lines audit log, and return `executed=false`.
+Write tools do not execute CrowdSec changes. They validate the requested IP or scenario, prepare a plausible `cscli` command for an operator to review, append the prepared intent to the JSON Lines audit log, and return `executed=false`.
 
 ## Getting Started
 
@@ -47,6 +48,8 @@ See [docs/decision-gap-report-example.md](docs/decision-gap-report-example.md) f
 - `unban_ip(ip, reason?, execute=false)`
 - `allow_ip(ip, duration?, reason, execute=false)`
 - `ban_ip(ip, duration?, reason, execute=false)`
+- `enable_scenario_simulation(scenario, reason, execute=false)`
+- `disable_scenario_simulation(scenario, reason, execute=false)`
 
 ## Configuration
 

@@ -138,6 +138,18 @@ Prepare a potential manual ban command:
 }
 ```
 
+Prepare moving a scenario into simulation:
+
+```json
+{
+  "tool": "enable_scenario_simulation",
+  "arguments": {
+    "scenario": "local/snort-misc-attack-repeat",
+    "reason": "new scenario should soak before remediation"
+  }
+}
+```
+
 The response includes a `potential_cscli_command` and appends the prepared intent to the write audit log. The MCP does not execute the command, even if a legacy `execute` flag is sent:
 
 ```json

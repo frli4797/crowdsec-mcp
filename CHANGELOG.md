@@ -1,5 +1,16 @@
 # Version History
 
+## Unreleased
+
+### Added
+
+- Added `enable_scenario_simulation(...)` and `disable_scenario_simulation(...)` to prepare audited `cscli simulation enable/disable <scenario>` commands for manual review.
+
+### Security And Safety
+
+- Scenario simulation tools validate one scenario name, require a human-readable reason, remain prepare-only, and return `executed=false`.
+- No MCP-executed CrowdSec mutations are introduced.
+
 ## v0.3.0 - 2026-08-13
 
 ### Added

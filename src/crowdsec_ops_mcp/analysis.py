@@ -124,6 +124,15 @@ class SecurityOps:
     ) -> dict[str, Any]:
         return await self.crowdsec.write_decision(action, ip, duration, reason, bool(execute))
 
+    async def scenario_simulation_action(
+        self,
+        action: str,
+        scenario: str,
+        reason: str,
+        execute: bool | None,
+    ) -> dict[str, Any]:
+        return await self.crowdsec.write_scenario_simulation(action, scenario, reason, bool(execute))
+
 
 def summarize_ip(decisions: list[Decision], alerts: list[CrowdSecAlert]) -> dict[str, Any]:
     return {
