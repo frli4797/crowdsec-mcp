@@ -1,7 +1,16 @@
 import logging
 from datetime import UTC, datetime
 
-from crowdsec_ops_mcp.analysis import SecurityOps, decision_inventory, recommend, scenario_suggestion, summarize_ip, suspicious_trends, top_source_ips
+from crowdsec_ops_mcp.analysis import (
+    SecurityOps,
+    decision_gap_report,
+    decision_inventory,
+    recommend,
+    scenario_suggestion,
+    summarize_ip,
+    suspicious_trends,
+    top_source_ips,
+)
 from crowdsec_ops_mcp.config import Config
 from crowdsec_ops_mcp.models import CrowdSecAlert, Decision
 
@@ -118,6 +127,81 @@ def test_decision_inventory_expiry_views_and_limit():
     assert inventory["stale_or_long_lived"]["count"] == 2
     assert len(inventory["stale_or_long_lived"]["decisions"]) == 1
     assert inventory["stale_or_long_lived"]["decisions"][0]["ip"] == "203.0.113.11"
+
+
+def test_decision_gap_report_finds_attention_gaps_without_mutation():
+    report = decision_gap_report(
+        [
+            Decision(ip="203.0.113.20", action="ban", until="2026-07-28T13:00:00Z"),
+            Decision(ip="203.0.113.30", action="ban", until="2026-08-30T12:00:00Z"),
+        ],
+        [
+            CrowdSecAlert(ip="203.0.113.10", scenario="crowdsecurity/http-probing", events_count=4),
+            CrowdSecAlert(ip="203.0.113.10", scenario="crowdsecurity/http-probing", events_count=6),
+            CrowdSecAlert(ip="203.0.113.10", scenario="crowdsecurity/http-crawl-non_statics", events_count=1),
+            CrowdSecAlert(ip="203.0.113.20", scenario="crowdsecurity/http-probing"),
+            CrowdSecAlert(ip="198.51.100.9", scenario="crowdsecurity/http-probing"),
+            CrowdSecAlert(ip="198.51.100.9", scenario="crowdsecurity/http-probing"),
+        ],
+        window="24h",
+        repeat_threshold=3,
+        noisy_scenario_threshold=3,
+        expiring_soon_hours=2,
+        now=datetime(2026, 7, 28, 12, 0, tzinfo=UTC),
+    )
+
+    assert report["summary"] == {
+        "active_decision_count": 2,
+        "recent_alert_count": 6,
+        "repeated_alert_ips_without_decision": 1,
+        "active_decisions_without_recent_alerts": 1,
+        "expiring_decisions_with_recent_alerts": 1,
+        "noisy_scenarios": 1,
+        "repeat_offenders_below_threshold": 1,
+    }
+    assert report["findings"]["repeated_alerts_without_decision"] == [
+        {
+            "ip": "203.0.113.10",
+            "alert_count": 3,
+            "event_count": 11,
+            "top_scenarios": [
+                {"value": "crowdsecurity/http-probing", "count": 2},
+                {"value": "crowdsecurity/http-crawl-non_statics", "count": 1},
+            ],
+        }
+    ]
+    assert report["findings"]["active_decisions_without_recent_alerts"][0]["ip"] == "203.0.113.30"
+    assert report["findings"]["expiring_decisions_with_recent_alerts"][0]["ip"] == "203.0.113.20"
+    assert report["findings"]["noisy_scenarios"] == [{"scenario": "crowdsecurity/http-probing", "alert_count": 5}]
+    assert report["findings"]["repeat_offenders_below_threshold"][0]["ip"] == "198.51.100.9"
+    assert report["mutation"] == {"prepared_write_intents": False, "executed": False}
+    assert {item["action"] for item in report["recommendations"]} == {
+        "review repeat offenders",
+        "review expiring decisions",
+        "review quiet active decisions",
+        "review noisy scenarios",
+    }
+
+
+def test_decision_gap_report_returns_monitor_when_no_thresholds_match():
+    report = decision_gap_report(
+        [Decision(ip="203.0.113.10", action="ban")],
+        [CrowdSecAlert(ip="203.0.113.10", scenario="crowdsecurity/http-probing")],
+        window="24h",
+        repeat_threshold=3,
+        noisy_scenario_threshold=10,
+        now=datetime(2026, 7, 28, 12, 0, tzinfo=UTC),
+    )
+
+    assert report["summary"]["repeated_alert_ips_without_decision"] == 0
+    assert report["recommendations"] == [
+        {
+            "action": "monitor",
+            "rationale": "No decision gaps exceeded the configured thresholds.",
+            "confidence": "low",
+        }
+    ]
+    assert report["mutation"]["executed"] is False
 
 
 def test_suspicious_trends_flags_decision_gap():

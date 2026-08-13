@@ -100,11 +100,11 @@ Useful output:
 
 ### 5. Add Decision Gap Analysis
 
-Status: not implemented.
+Status: implemented as `decision_gap_report(...)`.
 
-Add a `decision_gap_report` tool that highlights places where the read-only evidence suggests operator attention.
+The `decision_gap_report` tool highlights places where the read-only evidence suggests operator attention.
 
-Useful findings:
+Implemented findings:
 
 - repeated alerts with no active decision
 - active decisions with no recent alerts
@@ -112,7 +112,7 @@ Useful findings:
 - top repeat offenders below any current decision threshold
 - decisions that may be expiring while alerts continue
 
-This tool should return evidence and recommendations only. It should not prepare write intents unless the caller explicitly invokes an existing write-intent tool separately.
+This tool returns evidence and recommendations only. It does not prepare write intents.
 
 ### 6. Improve IP Inspection
 
@@ -325,12 +325,11 @@ Any future write execution should keep these constraints:
 Recommended sequence from the current state:
 
 1. fix sparse IP lookup edge cases found in `decision_inventory(ip=...)`
-2. add `decision_gap_report`
-3. add `alert_timeline`
-4. improve `inspect_ip` with counts, event totals, expiry summaries, and suggested follow-up
-5. make `suggest_scenario` evidence-driven instead of generic
-6. add read-only `recent_write_intents`
-7. add limits or pagination to list-like tools beyond `decision_inventory`
-8. tighten high-value output contracts with explicit response models
-9. decide whether dormant `cscli` read fallback code should be removed or promoted to supported functionality
-10. revisit write execution only after the read-side tools and audit introspection are stronger
+2. add `alert_timeline`
+3. improve `inspect_ip` with counts, event totals, expiry summaries, and suggested follow-up
+4. make `suggest_scenario` evidence-driven instead of generic
+5. add read-only `recent_write_intents`
+6. add limits or pagination to list-like tools beyond `decision_inventory`
+7. tighten high-value output contracts with explicit response models
+8. decide whether dormant `cscli` read fallback code should be removed or promoted to supported functionality
+9. revisit write execution only after the read-side tools and audit introspection are stronger

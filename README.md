@@ -31,6 +31,8 @@ See [ONBOARDING.md](ONBOARDING.md) for installation, deployment, MCP client conf
 
 See [docs/decision-inventory-example.md](docs/decision-inventory-example.md) for example `decision_inventory` tool calls.
 
+See [docs/decision-gap-report-example.md](docs/decision-gap-report-example.md) for example `decision_gap_report` tool calls.
+
 ## Tools
 
 - `crowdsec_health(include_sample_counts=false)`
@@ -40,6 +42,7 @@ See [docs/decision-inventory-example.md](docs/decision-inventory-example.md) for
 - `recent_crowdsec_decisions(window?)`
 - `decision_inventory(action?, origin?, scenario?, country?, asn?, ip?, limit?, expiring_soon_hours?, long_lived_days?)`
 - `recent_crowdsec_alerts(window?)`
+- `decision_gap_report(window?, repeat_threshold?, noisy_scenario_threshold?, expiring_soon_hours?, limit?)`
 - `suggest_scenario(window?)`
 - `unban_ip(ip, reason?, execute=false)`
 - `allow_ip(ip, duration?, reason, execute=false)`
@@ -61,6 +64,7 @@ See [docs/decision-inventory-example.md](docs/decision-inventory-example.md) for
 - [ONBOARDING.md](ONBOARDING.md): user installation and first-use guide
 - [CHANGELOG.md](CHANGELOG.md): version history
 - [docs/decision-inventory-example.md](docs/decision-inventory-example.md): example `decision_inventory` tool calls
+- [docs/decision-gap-report-example.md](docs/decision-gap-report-example.md): example `decision_gap_report` tool calls
 - [docs/agent-usage.md](docs/agent-usage.md): agent prompt patterns and investigation guidance
 - [docs/development.md](docs/development.md): local development workflow
 - [docs/roadmap.md](docs/roadmap.md): project roadmap
