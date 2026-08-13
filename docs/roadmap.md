@@ -9,12 +9,12 @@ The server now has a useful read-side foundation:
 - `crowdsec_health` explains backend mode, LAPI reachability, `cscli` path diagnostics, configured defaults, write-audit path, and exposed capabilities.
 - `decision_inventory` summarizes active decisions with filters, grouped counts, expiry views, long-lived/stale views, and representative rows.
 - LAPI-backed alert reads use optional CrowdSec machine auth and report an explicit warning when only bouncer decision auth is configured.
-- write tools are prepare-only and audited; the legacy `execute` flag is accepted but does not mutate CrowdSec state.
-- scenario simulation tools prepare audited commands to move one scenario into or out of simulation, without executing CrowdSec changes.
+- IP write tools are prepare-only and audited; the legacy `execute` flag is accepted but does not mutate CrowdSec IP decisions.
+- scenario simulation tools execute audited machine-auth API writes to move one scenario into or out of simulation.
 
-Supported runtime reads use CrowdSec LAPI. Decision reads use bouncer API-key auth; alert reads require machine auth. Actual `cscli` reads and `cscli` execution are not supported today. `cscli` appears in current behavior only as prepared command text returned for human review.
+Supported runtime operations use CrowdSec LAPI. Decision reads use bouncer API-key auth; alert reads and scenario simulation writes require machine auth. Actual `cscli` reads and `cscli` execution are not supported today. `cscli` appears in current behavior only as prepared IP command text returned for human review.
 
-The near-term priority remains read-side depth and operator ergonomics before revisiting any production write execution.
+The near-term priority remains read-side depth and operator ergonomics before revisiting production IP decision write execution.
 
 The roadmap now has three main avenues:
 
@@ -206,18 +206,21 @@ This should make downstream agent behavior more predictable and make tests easie
 
 ## Write Operations Avenue
 
-Write operations should remain a separate avenue from read-side investigation work. The current project position is to keep production mutation paused while read-only operator value matures.
+Write operations should remain a separate avenue from read-side investigation work. The current project position allows only narrow, audited API writes through machine auth when explicitly gated by `WRITE_OPERATIONS_ENABLED=true`. Production IP decision mutation remains paused while read-side operator value matures.
 
 ### Existing Safe Write Foundation
 
-The current safe write foundation prepares potential `cscli` command text and writes JSON Lines audit records. The MCP does not run those commands.
+The current safe write foundation has two paths:
+
+- IP decision tools prepare potential `cscli` command text and write JSON Lines audit records. The MCP does not run those commands.
+- Scenario simulation tools execute single-scenario API writes through CrowdSec LAPI machine auth when `WRITE_OPERATIONS_ENABLED=true` and the exact `user_confirmation` phrase is supplied, and write JSON Lines audit records before and after execution.
 
 This gives operators:
 
 - a concrete command to review
 - a record of write intent
 - a safe path for local MCP testing
-- a narrow single-IP decision surface and single-scenario simulation surface for future execution review
+- a narrow single-IP decision surface and a gated single-scenario simulation write surface
 
 The audit log path is configured with:
 
@@ -231,14 +234,9 @@ For containerized Codex MCP usage, prefer a host-mounted audit directory so logs
 
 Status: implemented as `enable_scenario_simulation(...)` and `disable_scenario_simulation(...)`.
 
-Scenario simulation moves are treated as prepared operator intents, not executed mutations. They generate:
+Scenario simulation moves are audited read-write operations through CrowdSec LAPI machine auth.
 
-```bash
-cscli simulation enable <scenario>
-cscli simulation disable <scenario>
-```
-
-The tools require one scenario name and a human-readable reason. They append to the same JSON Lines write-audit log as IP decision intents and return `executed=false`, including when a legacy `execute=true` flag is supplied. Responses include non-secret auth context that reports LAPI machine-auth availability while making clear that the prepared simulation command is a local `cscli` configuration operation.
+The tools require one scenario name, a human-readable reason, and the exact confirmation phrase `confirm scenario simulation <action> <scenario>`. They append attempted and applied records to the same JSON Lines write-audit log as IP decision intents and return `executed=true` only after the API call succeeds. Responses include the API method, redacted URL, status code, and non-secret auth context.
 
 This is useful for:
 
@@ -250,8 +248,7 @@ Remaining useful follow-up:
 
 - expose recent scenario simulation intents through the future `recent_write_intents` read-only audit tool
 - decide whether future decision execution should use `cscli` with machine credentials or direct LAPI machine-auth writes
-- only consider scenario simulation execution through an explicit local `cscli` and configuration mount design, unless CrowdSec exposes a supported LAPI endpoint for simulation management later
-- keep any future execution single-scenario only, with explicit reason and audit records before and after execution
+- keep scenario simulation execution single-scenario only, gated by `WRITE_OPERATIONS_ENABLED=true`, with exact user confirmation, explicit reason, and audit records before and after execution
 
 ### Future Execution Options
 
@@ -265,7 +262,7 @@ Preferred order:
 
 Do not add remote `cscli` execution as the default mutation architecture.
 
-Until that decision is made, keep write execution PRs draft or experimental.
+Until that decision is made, keep IP decision write execution PRs draft or experimental.
 
 #### Option 1: Execute Decisions Through LAPI
 
@@ -315,7 +312,7 @@ Important distinction:
 
 - bouncer API keys are for reading decisions
 - machine credentials are needed for creating and deleting decisions
-- scenario simulation is managed by `cscli` through local simulation configuration, not by the bouncer decision API
+- scenario simulation writes use machine credentials and are additionally gated by `WRITE_OPERATIONS_ENABLED=true` plus exact `user_confirmation`
 
 If this path is used in the future, keep the container setup explicit:
 
@@ -342,7 +339,7 @@ Cons:
 
 ### Safety Constraints For Any Write Path
 
-Any future write execution should keep these constraints:
+Any write execution should keep these constraints:
 
 - decision writes are single-IP only
 - scenario simulation writes are single-scenario only
@@ -350,8 +347,8 @@ Any future write execution should keep these constraints:
 - no bulk ban or bulk unban
 - no delete-all operation
 - required reason for ban, allow, unban, and scenario simulation changes
-- explicit `execute=true` for mutation
-- prepared command returned even when executed
+- explicit environment opt-in before mutation
+- exact user confirmation before API write mutation
 - audit entry before execution
 - audit entry after execution with status, return code, stdout, and stderr or HTTP response details
 - no Docker socket access
@@ -369,4 +366,4 @@ Recommended sequence from the current state:
 6. add limits or pagination to list-like tools beyond `decision_inventory`
 7. tighten high-value output contracts with explicit response models
 8. decide whether dormant `cscli` read fallback code should be removed or promoted to supported functionality
-9. revisit write execution only after the read-side tools and audit introspection are stronger
+9. revisit IP decision write execution only after the read-side tools and audit introspection are stronger

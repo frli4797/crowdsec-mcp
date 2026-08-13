@@ -19,7 +19,8 @@ Short operator-focused summary of what changed.
 ## Security And Safety
 
 - Confirm whether the CrowdSec-only boundary changed.
-- Confirm whether write actions remain single-IP and prepare-only, with no MCP-executed CrowdSec mutations.
+- Confirm whether IP decision write actions remain single-IP and prepare-only.
+- Confirm whether any API write action is gated by `WRITE_OPERATIONS_ENABLED=true`, machine-authenticated, narrowly scoped, protected by exact `user_confirmation`, and audited.
 
 ## Upgrade Notes
 

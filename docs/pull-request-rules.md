@@ -25,7 +25,10 @@ Small docs fixes, typo fixes, dependency updates, and obvious CI maintenance do 
 
 - Do not add direct access to VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
 - Do not add bulk ban, bulk unban, delete-all, or broad mutation tools.
-- Keep write actions single-IP and prepare-only; the MCP must not execute CrowdSec mutations.
+- Keep IP decision write tools single-IP and prepare-only; the MCP must not execute IP decision mutations.
+- API write tools may execute only when they are narrow, gated by `WRITE_OPERATIONS_ENABLED=true`, machine-authenticated, and audited.
+- Require an exact `user_confirmation` phrase for any executed API write tool.
+- Keep scenario simulation writes single-scenario only.
 - Prefer supported CrowdSec API-level access over remote `cscli` execution for new capabilities.
 - Scenario, parser, and profile changes must be proposed, not applied automatically.
 
