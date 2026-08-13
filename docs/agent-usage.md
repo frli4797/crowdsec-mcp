@@ -52,6 +52,7 @@ For scenario simulation moves, include:
 - the evidence or operator review that justifies the move
 - the prepared command only
 - a reminder that the MCP did not execute the change
+- the returned auth context, without implying LAPI machine auth directly changed simulation state
 
 ## Prompt Patterns
 

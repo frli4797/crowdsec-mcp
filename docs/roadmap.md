@@ -238,7 +238,7 @@ cscli simulation enable <scenario>
 cscli simulation disable <scenario>
 ```
 
-The tools require one scenario name and a human-readable reason. They append to the same JSON Lines write-audit log as IP decision intents and return `executed=false`, including when a legacy `execute=true` flag is supplied.
+The tools require one scenario name and a human-readable reason. They append to the same JSON Lines write-audit log as IP decision intents and return `executed=false`, including when a legacy `execute=true` flag is supplied. Responses include non-secret auth context that reports LAPI machine-auth availability while making clear that the prepared simulation command is a local `cscli` configuration operation.
 
 This is useful for:
 
@@ -249,12 +249,13 @@ This is useful for:
 Remaining useful follow-up:
 
 - expose recent scenario simulation intents through the future `recent_write_intents` read-only audit tool
-- decide whether future execution should use `cscli` with machine credentials or direct LAPI machine-auth writes
+- decide whether future decision execution should use `cscli` with machine credentials or direct LAPI machine-auth writes
+- only consider scenario simulation execution through an explicit local `cscli` and configuration mount design, unless CrowdSec exposes a supported LAPI endpoint for simulation management later
 - keep any future execution single-scenario only, with explicit reason and audit records before and after execution
 
 ### Future Execution Options
 
-When write operations are revisited, decide first between:
+When decision write operations are revisited, decide first between:
 
 1. packaging or mounting `cscli` plus machine credentials
 2. implementing direct LAPI machine-auth writes
@@ -270,8 +271,6 @@ The proposed write execution path would use:
 ```bash
 cscli decisions add --ip <ip> --type ban --reason <reason> --duration <duration>
 cscli decisions delete --ip <ip>
-cscli simulation enable <scenario>
-cscli simulation disable <scenario>
 ```
 
 This would require `cscli` to be available inside the MCP runtime environment.
@@ -294,6 +293,7 @@ Important distinction:
 
 - bouncer API keys are for reading decisions
 - machine credentials are needed for creating and deleting decisions
+- scenario simulation is managed by `cscli` through local simulation configuration, not by the bouncer decision API
 
 If this path is used in the future, keep the container setup explicit:
 
@@ -318,9 +318,9 @@ Cons:
 - requires machine credential handling in the MCP runtime
 - subprocess behavior must be carefully audited and tested
 
-#### Option 2: Execute Through LAPI
+#### Option 2: Execute Decisions Through LAPI
 
-A future implementation could call LAPI directly with machine credentials.
+A future implementation could call LAPI directly with machine credentials for decision writes.
 
 Pros:
 

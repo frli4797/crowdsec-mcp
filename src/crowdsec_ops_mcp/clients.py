@@ -373,6 +373,11 @@ class CrowdSecClient:
             "scenario": scenario,
             "action": action,
             "reason": reason,
+            "auth_context": {
+                "lapi_machine_auth_configured": self._machine_auth_configured(),
+                "command_auth_mode": "cscli_local_config",
+                "note": "CrowdSec scenario simulation is managed through cscli/local simulation configuration, not the bouncer decision API.",
+            },
             "status": "prepared",
             "note": "This MCP does not execute CrowdSec scenario simulation changes. Review and run the potential cscli command manually if appropriate.",
         }

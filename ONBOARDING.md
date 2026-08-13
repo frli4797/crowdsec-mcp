@@ -181,6 +181,8 @@ Prepare moving a scenario into simulation:
 }
 ```
 
+Scenario simulation responses include an `auth_context` object. It reports whether LAPI machine auth is configured, but the prepared command remains a local `cscli simulation ...` operation because CrowdSec manages scenario simulation through local simulation configuration.
+
 The response includes a `potential_cscli_command` and appends the prepared intent to the write audit log. The MCP does not execute the command, even if a legacy `execute` flag is sent:
 
 ```json
