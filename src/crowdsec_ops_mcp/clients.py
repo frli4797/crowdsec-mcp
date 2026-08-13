@@ -20,6 +20,7 @@ from .models import CrowdSecAlert, Decision
 logger = logging.getLogger(__name__)
 
 WRITE_ACTIONS = {"ban", "unban", "whitelist"}
+SIMULATION_ACTIONS = {"enable", "disable"}
 
 
 class CrowdSecClient:
@@ -352,6 +353,39 @@ class CrowdSecClient:
         logger.debug("Prepared potential CrowdSec decision command: command=%s", command)
         return summary
 
+    async def write_scenario_simulation(
+        self,
+        action: str,
+        scenario: str,
+        reason: str,
+        execute: bool,
+    ) -> dict[str, Any]:
+        _validate_simulation_action(action)
+        scenario = _validate_scenario_name(scenario)
+        command = [self.config.cscli_path, "simulation", action, scenario]
+        cscli_command = shlex.join(command)
+        summary = {
+            "intent_type": "scenario_simulation",
+            "execute_requested": execute,
+            "executed": False,
+            "command": command,
+            "potential_cscli_command": cscli_command,
+            "scenario": scenario,
+            "action": action,
+            "reason": reason,
+            "auth_context": {
+                "lapi_machine_auth_configured": self._machine_auth_configured(),
+                "command_auth_mode": "cscli_local_config",
+                "note": "CrowdSec scenario simulation is managed through cscli/local simulation configuration, not the bouncer decision API.",
+            },
+            "status": "prepared",
+            "note": "This MCP does not execute CrowdSec scenario simulation changes. Review and run the potential cscli command manually if appropriate.",
+        }
+        self._audit_write(summary)
+        logger.info("Prepared CrowdSec scenario simulation intent without execution: action=%s scenario=%s", action, scenario)
+        logger.debug("Prepared potential CrowdSec scenario simulation command: command=%s", command)
+        return summary
+
     def _audit_write(self, entry: dict[str, Any]) -> None:
         path = Path(self.config.write_audit_log_path)
         if path.parent != Path("."):
@@ -372,11 +406,28 @@ def _validate_write_action(action: str) -> None:
         raise ValueError(f"Unsupported CrowdSec write action: {action}")
 
 
+def _validate_simulation_action(action: str) -> None:
+    if action not in SIMULATION_ACTIONS:
+        raise ValueError(f"Unsupported CrowdSec scenario simulation action: {action}")
+
+
 def _validate_ip(ip: str) -> str:
     try:
         return str(ipaddress.ip_address(ip))
     except ValueError as exc:
         raise ValueError(f"Invalid IP address for CrowdSec write action: {ip}") from exc
+
+
+def _validate_scenario_name(scenario: str) -> str:
+    scenario = scenario.strip()
+    if not scenario:
+        raise ValueError("CrowdSec scenario name is required")
+    if scenario.startswith("-") or any(char.isspace() for char in scenario):
+        raise ValueError(f"Invalid CrowdSec scenario name: {scenario}")
+    allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_./:@+-")
+    if any(char not in allowed for char in scenario):
+        raise ValueError(f"Invalid CrowdSec scenario name: {scenario}")
+    return scenario
 
 
 def _decision_from_lapi(item: dict[str, Any]) -> Decision:

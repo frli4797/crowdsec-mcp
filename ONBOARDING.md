@@ -169,6 +169,20 @@ Prepare a potential manual ban command:
 }
 ```
 
+Prepare moving a scenario into simulation:
+
+```json
+{
+  "tool": "enable_scenario_simulation",
+  "arguments": {
+    "scenario": "local/snort-misc-attack-repeat",
+    "reason": "new scenario should soak before remediation"
+  }
+}
+```
+
+Scenario simulation responses include an `auth_context` object. It reports whether LAPI machine auth is configured, but the prepared command remains a local `cscli simulation ...` operation because CrowdSec manages scenario simulation through local simulation configuration.
+
 The response includes a `potential_cscli_command` and appends the prepared intent to the write audit log. The MCP does not execute the command, even if a legacy `execute` flag is sent:
 
 ```json
@@ -195,6 +209,7 @@ Published image tags:
 
 - Prefer temporary allow entries over permanent allowlisting.
 - Review every prepared write command before running it manually outside the MCP.
+- Prefer supported CrowdSec API-level access for new capabilities; do not design around remote `cscli` execution when a supported API path exists.
 - This MCP does not expose bulk ban, bulk unban, or delete-all tools.
 - This MCP does not directly access VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
 - Use separate tools for logs, metrics, and dashboards when broader investigations need evidence outside CrowdSec.

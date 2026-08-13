@@ -6,6 +6,8 @@ This guide contains prompt and investigation patterns for agents using `crowdsec
 
 Use this MCP for CrowdSec evidence only. When a question needs logs, metrics, dashboards, IDS output, or reverse-proxy context, use separate tools for those sources and label the evidence clearly.
 
+Prefer supported CrowdSec API-level access over remote `cscli` execution. Treat returned `cscli` commands as reviewed operator command text unless the tool contract explicitly says otherwise.
+
 Good agent output should:
 
 - name the time window
@@ -44,6 +46,15 @@ For scenario proposals, include:
 - expected noise
 - risk and false-positive notes
 - simulation period
+
+For scenario simulation moves, include:
+
+- the exact scenario name
+- whether the scenario is moving into or out of simulation
+- the evidence or operator review that justifies the move
+- the prepared command only
+- a reminder that the MCP did not execute the change
+- the returned auth context, without implying LAPI machine auth directly changed simulation state
 
 ## Prompt Patterns
 
@@ -88,6 +99,18 @@ Prepare an operator-reviewed command:
 
 ```text
 Prepare the previously reviewed ban command for 203.0.113.10 for 4h with reason "confirmed repeated exploit attempts". Use only the single-IP ban tool. Do not perform any bulk action.
+```
+
+Prepare moving a scenario into simulation:
+
+```text
+Prepare moving local/snort-misc-attack-repeat into simulation with reason "new scenario should soak before remediation". Return only the prepared command details and do not execute changes.
+```
+
+Prepare promoting a scenario out of simulation:
+
+```text
+Prepare moving local/snort-misc-attack-repeat out of simulation with reason "7d simulation period was clean and operator reviewed alerts". Return only the prepared command details and do not execute changes.
 ```
 
 Suggest tuning without applying it:

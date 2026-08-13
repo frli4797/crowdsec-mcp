@@ -24,6 +24,7 @@ def _schema(properties: dict, required: list[str] | None = None) -> dict:
 
 WINDOW = {"type": "string", "description": "Lookback window such as 15m, 6h, 24h, 7d."}
 IP = {"type": "string", "description": "IPv4 or IPv6 address to inspect or operate on."}
+SCENARIO = {"type": "string", "description": "CrowdSec scenario name, such as local/snort-misc-attack-repeat."}
 LIMIT = {"type": "integer", "default": 20, "minimum": 0, "maximum": 100}
 REPEAT_THRESHOLD = {
     "type": "integer",
@@ -135,6 +136,16 @@ TOOL_DEFS = [
             ["ip", "reason"],
         ),
     ),
+    types.Tool(
+        name="enable_scenario_simulation",
+        description="Prepare and audit a potential cscli command to move one CrowdSec scenario into simulation. The MCP does not execute it.",
+        inputSchema=_schema({"scenario": SCENARIO, "reason": {"type": "string"}, "execute": EXECUTE}, ["scenario", "reason"]),
+    ),
+    types.Tool(
+        name="disable_scenario_simulation",
+        description="Prepare and audit a potential cscli command to move one CrowdSec scenario out of simulation. The MCP does not execute it.",
+        inputSchema=_schema({"scenario": SCENARIO, "reason": {"type": "string"}, "execute": EXECUTE}, ["scenario", "reason"]),
+    ),
 ]
 
 
@@ -245,6 +256,24 @@ async def ban_ip(
     return await ops.write_action("ban", ip, duration, reason, execute)
 
 
+async def enable_scenario_simulation(
+    scenario: str,
+    reason: str,
+    execute: bool | None = None,
+) -> dict:
+    """Prepare an audited potential cscli command to move one CrowdSec scenario into simulation."""
+    return await ops.scenario_simulation_action("enable", scenario, reason, execute)
+
+
+async def disable_scenario_simulation(
+    scenario: str,
+    reason: str,
+    execute: bool | None = None,
+) -> dict:
+    """Prepare an audited potential cscli command to move one CrowdSec scenario out of simulation."""
+    return await ops.scenario_simulation_action("disable", scenario, reason, execute)
+
+
 async def list_tools(_ctx: object, _params: types.PaginatedRequestParams | None) -> types.ListToolsResult:
     logger.debug("Client requested tool list")
     return types.ListToolsResult(tools=TOOL_DEFS)
@@ -265,6 +294,8 @@ async def call_tool(_ctx: object, params: types.CallToolRequestParams) -> types.
         "unban_ip": unban_ip,
         "allow_ip": allow_ip,
         "ban_ip": ban_ip,
+        "enable_scenario_simulation": enable_scenario_simulation,
+        "disable_scenario_simulation": disable_scenario_simulation,
     }
     name = params.name
     logger.debug("Client called tool: name=%s args=%s", name, args)
