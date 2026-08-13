@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Nothing yet.
+- Removed the unsupported scenario simulation enable/disable MCP tools. Standard CrowdSec LAPI does not expose scenario simulation management.
 
 ## v0.3.1 - 2026-08-13
 
