@@ -255,16 +255,38 @@ Remaining useful follow-up:
 
 ### Future Execution Options
 
-When decision write operations are revisited, decide first between:
+When decision write operations are revisited, prefer supported CrowdSec API-level access over remote command execution. API behavior is easier to constrain, audit, test, and reason about than shelling out to `cscli` on another system.
 
-1. packaging or mounting `cscli` plus machine credentials
-2. implementing direct LAPI machine-auth writes
+Preferred order:
+
+1. implement direct LAPI machine-auth writes where CrowdSec exposes supported endpoints
+2. continue returning reviewed `cscli` command text when no supported API write path exists
+3. consider local `cscli` execution only with an explicit design note proving why API-level access is unavailable or unsafe
+
+Do not add remote `cscli` execution as the default mutation architecture.
 
 Until that decision is made, keep write execution PRs draft or experimental.
 
-#### Option 1: Execute With cscli
+#### Option 1: Execute Decisions Through LAPI
 
-Status: future option only; not supported today.
+A future implementation could call LAPI directly with machine credentials for decision writes.
+
+Pros:
+
+- structured HTTP behavior
+- easier response handling and retries
+- easier unit testing with HTTP mocks
+- avoids installing `cscli` in the MCP image
+
+Cons:
+
+- requires exact CrowdSec write endpoint implementation
+- still requires machine credentials
+- less familiar to operators than `cscli`
+
+#### Option 2: Generate or Execute With cscli
+
+Status: command generation is supported for operator review; execution is a future option only and should not be remote-first.
 
 The proposed write execution path would use:
 
@@ -310,30 +332,13 @@ Pros:
 
 - matches CrowdSec operator UX
 - easy to show equivalent command to humans
-- avoids implementing LAPI write details immediately
 
 Cons:
 
 - requires packaging or mounting `cscli`
 - requires machine credential handling in the MCP runtime
 - subprocess behavior must be carefully audited and tested
-
-#### Option 2: Execute Decisions Through LAPI
-
-A future implementation could call LAPI directly with machine credentials for decision writes.
-
-Pros:
-
-- structured HTTP behavior
-- easier response handling and retries
-- easier unit testing with HTTP mocks
-- avoids installing `cscli` in the MCP image
-
-Cons:
-
-- requires exact CrowdSec write endpoint implementation
-- still requires machine credentials
-- less familiar to operators than `cscli`
+- must not become remote shell execution when API-level access can do the job
 
 ### Safety Constraints For Any Write Path
 

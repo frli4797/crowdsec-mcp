@@ -26,6 +26,8 @@ Supported runtime reads use CrowdSec LAPI. Decision reads use a bouncer API key.
 
 Write tools do not execute CrowdSec changes. They validate the requested IP or scenario, prepare a plausible `cscli` command for an operator to review, append the prepared intent to the JSON Lines audit log, and return `executed=false`. Scenario simulation responses also include non-secret auth context so agents can distinguish LAPI machine-auth availability from the local `cscli` simulation command being proposed.
 
+For future capabilities, prefer supported CrowdSec API-level access over remote `cscli` execution. `cscli` text in responses is for local operator review unless a future design explicitly documents why no API-level alternative exists.
+
 ## Getting Started
 
 See [ONBOARDING.md](ONBOARDING.md) for installation, deployment, MCP client configuration, first tool calls, safety notes, and troubleshooting.

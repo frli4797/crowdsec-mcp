@@ -209,6 +209,7 @@ Published image tags:
 
 - Prefer temporary allow entries over permanent allowlisting.
 - Review every prepared write command before running it manually outside the MCP.
+- Prefer supported CrowdSec API-level access for new capabilities; do not design around remote `cscli` execution when a supported API path exists.
 - This MCP does not expose bulk ban, bulk unban, or delete-all tools.
 - This MCP does not directly access VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
 - Use separate tools for logs, metrics, and dashboards when broader investigations need evidence outside CrowdSec.

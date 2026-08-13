@@ -6,6 +6,8 @@ This guide contains prompt and investigation patterns for agents using `crowdsec
 
 Use this MCP for CrowdSec evidence only. When a question needs logs, metrics, dashboards, IDS output, or reverse-proxy context, use separate tools for those sources and label the evidence clearly.
 
+Prefer supported CrowdSec API-level access over remote `cscli` execution. Treat returned `cscli` commands as reviewed operator command text unless the tool contract explicitly says otherwise.
+
 Good agent output should:
 
 - name the time window
