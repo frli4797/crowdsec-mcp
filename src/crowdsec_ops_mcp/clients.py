@@ -404,19 +404,36 @@ class CrowdSecClient:
         }
         self._audit_write(summary)
         token = await self._machine_token()
-        async with httpx.AsyncClient(timeout=20) as client:
-            res = await client.request(
-                method,
-                url,
-                headers={"Authorization": f"Bearer {token}"},
-                json={
-                    "scenario": scenario,
-                    "reason": reason,
-                    "simulation": action == "enable",
-                    "user_confirmation": user_confirmation,
-                },
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                res = await client.request(
+                    method,
+                    url,
+                    headers={"Authorization": f"Bearer {token}"},
+                    json={
+                        "scenario": scenario,
+                        "reason": reason,
+                        "simulation": action == "enable",
+                        "user_confirmation": user_confirmation,
+                    },
+                )
+                res.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            summary.update(
+                {
+                    "executed": False,
+                    "status": "failed",
+                    "status_code": exc.response.status_code,
+                    "response": _safe_json(exc.response),
+                    "error": exc.__class__.__name__,
+                }
             )
-            res.raise_for_status()
+            self._audit_write(summary)
+            raise
+        except httpx.HTTPError as exc:
+            summary.update({"executed": False, "status": "failed", "error": exc.__class__.__name__})
+            self._audit_write(summary)
+            raise
         summary.update(
             {
                 "executed": True,
