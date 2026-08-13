@@ -19,34 +19,53 @@ class SecurityOps:
 
     async def inspect_ip(self, ip: str, window: str | None = None) -> dict[str, Any]:
         decisions = await self.crowdsec.decisions(ip)
-        alerts = await self.crowdsec.alerts(ip, window)
+        alert_result = await self.crowdsec.alerts_with_status(ip, window)
+        alerts = alert_result["alerts"]
         return {
             "ip": ip,
             "window": window or self.config.default_window,
             "active_decisions": [d.model_dump() for d in decisions],
             "crowdsec_alerts": [a.model_dump() for a in alerts],
+            "alert_visibility": alert_result["status"],
             "summary": summarize_ip(decisions, alerts),
             "recommendation": recommend(decisions, alerts).model_dump(),
         }
 
     async def security_summary(self, window: str | None = None) -> dict[str, Any]:
         decisions = await self.crowdsec.decisions()
-        alerts = await self.crowdsec.alerts(window=window)
+        alert_result = await self.crowdsec.alerts_with_status(window=window)
+        alerts = alert_result["alerts"]
+        actionable_alerts = filter_actionable_alerts(alerts)
         return {
             "window": window or self.config.default_window,
             "active_decision_count": len(decisions),
             "recent_crowdsec_alert_count": len(alerts),
-            "top_source_ips": top_source_ips(alerts),
-            "top_countries": _top([x.country for x in decisions + alerts]),
-            "top_asns": _top([x.as_name for x in decisions + alerts]),
-            "top_crowdsec_scenarios": _top([x.scenario for x in alerts if x.scenario]),
+            "recent_actionable_alert_count": len(actionable_alerts),
+            "non_actionable_alert_count": len(alerts) - len(actionable_alerts),
+            "non_actionable_alert_examples": non_actionable_alert_examples(alerts),
+            "alert_visibility": alert_result["status"],
+            "top_source_ips": top_source_ips(actionable_alerts),
+            "top_countries": _top([x.country for x in decisions + actionable_alerts]),
+            "top_asns": _top([x.as_name for x in decisions + actionable_alerts]),
+            "top_crowdsec_scenarios": _top([x.scenario for x in actionable_alerts if x.scenario]),
             "decision_actions": _top([x.action for x in decisions]),
-            "trends": suspicious_trends(decisions, alerts),
+            "trends": suspicious_trends(decisions, actionable_alerts),
         }
 
     async def top_offenders(self, window: str | None = None) -> dict[str, Any]:
-        alerts = await self.crowdsec.alerts(window=window)
-        return {"window": window or self.config.default_window, "source": "crowdsec", "top_source_ips": top_source_ips(alerts)}
+        alert_result = await self.crowdsec.alerts_with_status(window=window)
+        alerts = alert_result["alerts"]
+        actionable_alerts = filter_actionable_alerts(alerts)
+        return {
+            "window": window or self.config.default_window,
+            "source": "crowdsec",
+            "alert_visibility": alert_result["status"],
+            "recent_crowdsec_alert_count": len(alerts),
+            "recent_actionable_alert_count": len(actionable_alerts),
+            "non_actionable_alert_count": len(alerts) - len(actionable_alerts),
+            "non_actionable_alert_examples": non_actionable_alert_examples(alerts),
+            "top_source_ips": top_source_ips(actionable_alerts),
+        }
 
     async def decision_inventory(
         self,
@@ -83,20 +102,40 @@ class SecurityOps:
         limit: int = 20,
     ) -> dict[str, Any]:
         decisions = await self.crowdsec.decisions()
-        alerts = await self.crowdsec.alerts(window=window)
-        return decision_gap_report(
+        alert_result = await self.crowdsec.alerts_with_status(window=window)
+        alerts = alert_result["alerts"]
+        actionable_alerts = filter_actionable_alerts(alerts)
+        report = decision_gap_report(
             decisions,
-            alerts,
+            actionable_alerts,
             window=window or self.config.default_window,
             repeat_threshold=repeat_threshold,
             noisy_scenario_threshold=noisy_scenario_threshold,
             expiring_soon_hours=expiring_soon_hours,
             limit=limit,
         )
+        report["alert_accounting"] = {
+            "recent_crowdsec_alert_count": len(alerts),
+            "recent_actionable_alert_count": len(actionable_alerts),
+            "non_actionable_alert_count": len(alerts) - len(actionable_alerts),
+            "non_actionable_alert_examples": non_actionable_alert_examples(alerts),
+        }
+        report["alert_visibility"] = alert_result["status"]
+        return report
 
     async def suggest_scenario(self, window: str | None = None) -> dict[str, Any]:
-        alerts = await self.crowdsec.alerts(window=window)
-        return scenario_suggestion(alerts, window or self.config.default_window)
+        alert_result = await self.crowdsec.alerts_with_status(window=window)
+        alerts = alert_result["alerts"]
+        actionable_alerts = filter_actionable_alerts(alerts)
+        result = scenario_suggestion(actionable_alerts, window or self.config.default_window)
+        result["alert_accounting"] = {
+            "recent_crowdsec_alert_count": len(alerts),
+            "recent_actionable_alert_count": len(actionable_alerts),
+            "non_actionable_alert_count": len(alerts) - len(actionable_alerts),
+            "non_actionable_alert_examples": non_actionable_alert_examples(alerts),
+        }
+        result["alert_visibility"] = alert_result["status"]
+        return result
 
     async def crowdsec_health(self, capabilities: list[str], include_sample_counts: bool = False) -> dict[str, Any]:
         logger.info(
@@ -150,6 +189,52 @@ def recommend(decisions: list[Decision], alerts: list[CrowdSecAlert]) -> Recomme
 
 def top_source_ips(alerts: list[CrowdSecAlert]) -> list[dict[str, Any]]:
     return _top([a.ip for a in alerts if a.ip], limit=20)
+
+
+def filter_actionable_alerts(alerts: list[CrowdSecAlert]) -> list[CrowdSecAlert]:
+    return [alert for alert in alerts if is_actionable_alert(alert)]
+
+
+def is_actionable_alert(alert: CrowdSecAlert) -> bool:
+    if not alert.ip:
+        return False
+    scenario = (alert.scenario or "").strip()
+    if not scenario:
+        return False
+    return not _is_maintenance_scenario(scenario)
+
+
+def non_actionable_alert_examples(alerts: list[CrowdSecAlert], limit: int = 5) -> list[dict[str, Any]]:
+    examples = []
+    for alert in alerts:
+        if is_actionable_alert(alert):
+            continue
+        examples.append(
+            {
+                "scenario": alert.scenario,
+                "message": alert.message,
+                "created_at": alert.created_at,
+                "reason": _non_actionable_reason(alert),
+            }
+        )
+        if len(examples) >= limit:
+            break
+    return examples
+
+
+def _non_actionable_reason(alert: CrowdSecAlert) -> str:
+    if alert.scenario and _is_maintenance_scenario(alert.scenario):
+        return "maintenance_or_update_alert"
+    if not alert.ip:
+        return "missing_source_ip"
+    if not alert.scenario:
+        return "missing_scenario"
+    return "not_actionable"
+
+
+def _is_maintenance_scenario(scenario: str) -> bool:
+    normalized = scenario.strip().lower()
+    return normalized.startswith("update :") or normalized.startswith("update:")
 
 
 def decision_inventory(

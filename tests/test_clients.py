@@ -2,7 +2,14 @@ import json
 import logging
 import pytest
 
-from crowdsec_ops_mcp.clients import CrowdSecClient, _alert_from_cscli, _decision_from_cscli, _decision_from_lapi, _redact_url
+from crowdsec_ops_mcp.clients import (
+    CrowdSecClient,
+    _alert_from_cscli,
+    _alert_from_lapi,
+    _decision_from_cscli,
+    _decision_from_lapi,
+    _redact_url,
+)
 from crowdsec_ops_mcp.config import Config
 
 
@@ -10,6 +17,20 @@ def _config(audit_log_path):
     return Config(
         crowdsec_lapi_url=None,
         crowdsec_lapi_key=None,
+        crowdsec_lapi_machine_id=None,
+        crowdsec_lapi_machine_password=None,
+        cscli_path="cscli-test",
+        default_window="24h",
+        write_audit_log_path=str(audit_log_path),
+    )
+
+
+def _lapi_config(audit_log_path):
+    return Config(
+        crowdsec_lapi_url="http://crowdsec:8080",
+        crowdsec_lapi_key="lapi-secret",
+        crowdsec_lapi_machine_id="mcp-machine",
+        crowdsec_lapi_machine_password="machine-secret",
         cscli_path="cscli-test",
         default_window="24h",
         write_audit_log_path=str(audit_log_path),
@@ -49,6 +70,22 @@ def test_alert_from_cscli_nested_source():
     assert alert.ip == "203.0.113.10"
     assert alert.scenario == "crowdsecurity/http-probing"
     assert alert.events_count == 4
+
+
+def test_alert_from_lapi_nested_source_and_events():
+    alert = _alert_from_lapi(
+        {
+            "source": {"value": "203.0.113.10", "cn": "SE", "asname": "Example ASN"},
+            "scenario": "crowdsecurity/http-probing",
+            "created_at": "2026-07-28T10:00:00Z",
+            "events": [{"line": "one"}, {"line": "two"}],
+        }
+    )
+
+    assert alert.ip == "203.0.113.10"
+    assert alert.country == "SE"
+    assert alert.as_name == "Example ASN"
+    assert alert.events_count == 2
 
 
 def test_decision_from_lapi_common_fields():
@@ -91,6 +128,15 @@ async def test_health_reports_cscli_mode_without_samples(tmp_path, monkeypatch, 
         "status_code": None,
         "error": None,
     }
+    assert result["alert_auth"] == {
+        "mode": "lapi_machine",
+        "machine_id_present": False,
+        "password_present": False,
+        "configured": False,
+        "authenticated": None,
+        "error": None,
+        "warning": "CrowdSec alert lists require CrowdSec LAPI plus machine auth.",
+    }
     assert result["cscli"]["path"] == "cscli-test"
     assert result["cscli"]["available"] is True
     assert result["cscli"]["resolved_path"] == "/usr/bin/cscli-test"
@@ -127,6 +173,8 @@ async def test_health_lapi_failure_logs_sanitized_url(tmp_path, respx_mock, capl
         Config(
             crowdsec_lapi_url="http://machine:secret@crowdsec:8080",
             crowdsec_lapi_key="lapi-secret",
+            crowdsec_lapi_machine_id=None,
+            crowdsec_lapi_machine_password=None,
             cscli_path="cscli-test",
             default_window="24h",
             write_audit_log_path=str(tmp_path / "audit.jsonl"),
@@ -142,6 +190,99 @@ async def test_health_lapi_failure_logs_sanitized_url(tmp_path, respx_mock, capl
     assert "CrowdSec LAPI health check failed: url=http://crowdsec:8080 error=HTTPStatusError" in caplog.text
     assert "machine:secret" not in caplog.text
     assert "lapi-secret" not in caplog.text
+
+
+async def test_lapi_alerts_warn_when_machine_auth_missing(tmp_path, respx_mock, caplog):
+    client = CrowdSecClient(
+        Config(
+            crowdsec_lapi_url="http://crowdsec:8080",
+            crowdsec_lapi_key="bouncer-secret",
+            crowdsec_lapi_machine_id=None,
+            crowdsec_lapi_machine_password=None,
+            cscli_path="cscli-test",
+            default_window="24h",
+            write_audit_log_path=str(tmp_path / "audit.jsonl"),
+        )
+    )
+
+    caplog.set_level(logging.WARNING, logger="crowdsec_ops_mcp.clients")
+    result = await client.alerts_with_status(window="24h")
+
+    assert result["alerts"] == []
+    assert result["status"]["available"] is False
+    assert result["status"]["source"] == "lapi"
+    assert result["status"]["auth_mode"] == "machine"
+    assert "CROWDSEC_LAPI_MACHINE_ID" in result["status"]["warning"]
+    assert not respx_mock.calls
+    assert "LAPI machine auth is not configured" in caplog.text
+
+
+async def test_lapi_decisions_treats_null_response_as_empty_list(tmp_path, respx_mock):
+    client = CrowdSecClient(_lapi_config(tmp_path / "audit.jsonl"))
+    respx_mock.get("http://crowdsec:8080/v1/decisions").respond(200, json=None)
+
+    assert await client.decisions("203.0.113.10") == []
+
+
+async def test_lapi_alerts_use_machine_auth(tmp_path, respx_mock):
+    client = CrowdSecClient(
+        Config(
+            crowdsec_lapi_url="http://crowdsec:8080",
+            crowdsec_lapi_key="bouncer-secret",
+            crowdsec_lapi_machine_id="mcp-machine",
+            crowdsec_lapi_machine_password="machine-secret",
+            cscli_path="cscli-test",
+            default_window="24h",
+            write_audit_log_path=str(tmp_path / "audit.jsonl"),
+        )
+    )
+    respx_mock.post("http://crowdsec:8080/v1/watchers/login").respond(200, json={"token": "jwt-token"})
+    respx_mock.get("http://crowdsec:8080/v1/alerts").respond(
+        200,
+        json={
+            "alerts": [
+                {
+                    "source": {"value": "203.0.113.10"},
+                    "scenario": "crowdsecurity/http-probing",
+                    "created_at": "2026-07-28T10:00:00Z",
+                },
+                {
+                    "source": {"value": "198.51.100.3"},
+                    "scenario": "crowdsecurity/http-crawl-non_statics",
+                    "created_at": "2026-07-28T10:01:00Z",
+                },
+                {"scenario": "update : +15000/-0 IPs"},
+            ]
+        },
+    )
+
+    result = await client.alerts_with_status(ip="203.0.113.10", window="24h")
+
+    assert result["status"]["available"] is True
+    assert result["status"]["source"] == "lapi"
+    assert result["status"]["auth_mode"] == "machine"
+    assert [alert.ip for alert in result["alerts"]] == ["203.0.113.10"]
+    alerts_request = respx_mock.calls.last.request
+    assert alerts_request.headers["Authorization"] == "Bearer jwt-token"
+    assert alerts_request.url.params["since"] == "24h"
+    assert alerts_request.url.params["ip"] == "203.0.113.10"
+
+
+async def test_cscli_alerts_filters_by_ip_client_side(tmp_path, monkeypatch):
+    async def fake_run_json(args):
+        assert "--ip" in args
+        return [
+            {"source": {"ip": "203.0.113.10"}, "scenario": "crowdsecurity/http-probing"},
+            {"source": {"ip": "198.51.100.3"}, "scenario": "crowdsecurity/http-crawl-non_statics"},
+            {"scenario": "update : +15000/-0 IPs"},
+        ]
+
+    client = CrowdSecClient(_config(tmp_path / "audit.jsonl"))
+    monkeypatch.setattr("crowdsec_ops_mcp.clients._run_json", fake_run_json)
+
+    alerts = await client.alerts("203.0.113.10", "24h")
+
+    assert [alert.ip for alert in alerts] == ["203.0.113.10"]
 
 
 async def test_write_decision_prepares_ban_command_and_audits(tmp_path):
@@ -227,6 +368,8 @@ async def test_write_decision_does_not_run_fake_cscli_executable_even_when_execu
         Config(
             crowdsec_lapi_url=None,
             crowdsec_lapi_key=None,
+            crowdsec_lapi_machine_id=None,
+            crowdsec_lapi_machine_password=None,
             cscli_path=str(fake_cscli),
             default_window="24h",
             write_audit_log_path=str(audit_log),

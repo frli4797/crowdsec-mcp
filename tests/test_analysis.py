@@ -5,6 +5,9 @@ from crowdsec_ops_mcp.analysis import (
     SecurityOps,
     decision_gap_report,
     decision_inventory,
+    filter_actionable_alerts,
+    is_actionable_alert,
+    non_actionable_alert_examples,
     recommend,
     scenario_suggestion,
     summarize_ip,
@@ -41,6 +44,70 @@ def test_top_source_ips_uses_crowdsec_alerts_only():
     ]
 
     assert top_source_ips(alerts)[0] == {"value": "203.0.113.10", "count": 2}
+
+
+def test_actionable_alert_filter_skips_update_and_missing_ip_alerts():
+    actionable = CrowdSecAlert(ip="203.0.113.10", scenario="crowdsecurity/http-probing")
+    update = CrowdSecAlert(scenario="update : +15000/-0 IPs", created_at="2026-08-13T18:05:08Z")
+    no_ip = CrowdSecAlert(scenario="crowdsecurity/http-probing")
+
+    assert is_actionable_alert(actionable) is True
+    assert is_actionable_alert(update) is False
+    assert is_actionable_alert(no_ip) is False
+    assert filter_actionable_alerts([actionable, update, no_ip]) == [actionable]
+
+    assert non_actionable_alert_examples([actionable, update, no_ip]) == [
+        {
+            "scenario": "update : +15000/-0 IPs",
+            "message": None,
+            "created_at": "2026-08-13T18:05:08Z",
+            "reason": "maintenance_or_update_alert",
+        },
+        {
+            "scenario": "crowdsecurity/http-probing",
+            "message": None,
+            "created_at": None,
+            "reason": "missing_source_ip",
+        },
+    ]
+
+
+async def test_security_summary_separates_raw_and_actionable_alert_counts(tmp_path):
+    ops = SecurityOps(
+        Config(
+            crowdsec_lapi_url=None,
+            crowdsec_lapi_key=None,
+            crowdsec_lapi_machine_id=None,
+            crowdsec_lapi_machine_password=None,
+            cscli_path="cscli-test",
+            default_window="24h",
+            write_audit_log_path=str(tmp_path / "audit.jsonl"),
+        )
+    )
+
+    class FakeCrowdSec:
+        async def decisions(self):
+            return [Decision(ip="203.0.113.10", action="ban")]
+
+        async def alerts_with_status(self, window=None):
+            return {
+                "window": window or "24h",
+                "status": {"available": True, "source": "lapi", "auth_mode": "machine", "warning": None, "error": None},
+                "alerts": [
+                    CrowdSecAlert(ip="203.0.113.10", scenario="crowdsecurity/http-probing"),
+                    CrowdSecAlert(scenario="update : +15000/-0 IPs"),
+                ],
+            }
+
+    ops.crowdsec = FakeCrowdSec()
+
+    summary = await ops.security_summary("24h")
+
+    assert summary["recent_crowdsec_alert_count"] == 2
+    assert summary["recent_actionable_alert_count"] == 1
+    assert summary["non_actionable_alert_count"] == 1
+    assert summary["top_source_ips"] == [{"value": "203.0.113.10", "count": 1}]
+    assert summary["top_crowdsec_scenarios"] == [{"value": "crowdsecurity/http-probing", "count": 1}]
 
 
 def test_summarize_ip_extracts_crowdsec_dimensions_and_timestamps():
@@ -215,6 +282,8 @@ async def test_crowdsec_health_logs_analysis_lifecycle(tmp_path, monkeypatch, ca
         Config(
             crowdsec_lapi_url=None,
             crowdsec_lapi_key=None,
+            crowdsec_lapi_machine_id=None,
+            crowdsec_lapi_machine_password=None,
             cscli_path="cscli-test",
             default_window="24h",
             write_audit_log_path=str(tmp_path / "audit.jsonl"),

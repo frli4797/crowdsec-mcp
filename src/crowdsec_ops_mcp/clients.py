@@ -57,10 +57,12 @@ class CrowdSecClient:
             include_sample_counts,
         )
         lapi = await self._lapi_health()
+        alert_auth = await self._alert_auth_health()
         cscli = self._cscli_health()
         health: dict[str, Any] = {
             "backend_mode": self.mode,
             "lapi": lapi,
+            "alert_auth": alert_auth,
             "cscli": cscli,
             "default_window": self.config.default_window,
             "write_audit_log_path": self.config.write_audit_log_path,
@@ -77,6 +79,13 @@ class CrowdSecClient:
             cscli["available"],
         )
         return health
+
+    def _machine_auth_configured(self) -> bool:
+        return bool(
+            self.config.crowdsec_lapi_url
+            and self.config.crowdsec_lapi_machine_id
+            and self.config.crowdsec_lapi_machine_password
+        )
 
     async def _lapi_health(self) -> dict[str, Any]:
         url_present = bool(self.config.crowdsec_lapi_url)
@@ -112,6 +121,36 @@ class CrowdSecClient:
             status["reachable"] = False
             status["error"] = exc.__class__.__name__
             logger.warning("CrowdSec LAPI health check failed: url=%s error=%s", status["url"], exc.__class__.__name__)
+        return status
+
+    async def _alert_auth_health(self) -> dict[str, Any]:
+        machine_id_present = bool(self.config.crowdsec_lapi_machine_id)
+        password_present = bool(self.config.crowdsec_lapi_machine_password)
+        status: dict[str, Any] = {
+            "mode": "lapi_machine",
+            "machine_id_present": machine_id_present,
+            "password_present": password_present,
+            "configured": bool(self.config.crowdsec_lapi_url and machine_id_present and password_present),
+            "authenticated": None,
+            "error": None,
+            "warning": None,
+        }
+        if not self.config.crowdsec_lapi_url:
+            status["warning"] = "CrowdSec alert lists require CrowdSec LAPI plus machine auth."
+            return status
+        if not status["configured"]:
+            status["warning"] = (
+                "CrowdSec alert lists require machine auth. Configure CROWDSEC_LAPI_MACHINE_ID "
+                "and CROWDSEC_LAPI_MACHINE_PASSWORD to read /v1/alerts."
+            )
+            return status
+        try:
+            await self._machine_token()
+            status["authenticated"] = True
+        except (httpx.HTTPError, RuntimeError) as exc:
+            status["authenticated"] = False
+            status["error"] = exc.__class__.__name__
+            status["warning"] = "CrowdSec machine auth failed; alert lists are unavailable."
         return status
 
     def _cscli_health(self) -> dict[str, Any]:
@@ -153,6 +192,23 @@ class CrowdSecClient:
         )
         return counts
 
+    async def _machine_token(self) -> str:
+        if not self._machine_auth_configured():
+            raise RuntimeError("CrowdSec LAPI machine auth is not configured")
+        async with httpx.AsyncClient(timeout=10) as client:
+            res = await client.post(
+                f"{self.config.crowdsec_lapi_url.rstrip('/')}/v1/watchers/login",
+                json={
+                    "machine_id": self.config.crowdsec_lapi_machine_id,
+                    "password": self.config.crowdsec_lapi_machine_password,
+                },
+            )
+            res.raise_for_status()
+        token = res.json().get("token")
+        if not token:
+            raise RuntimeError("CrowdSec machine auth response did not include a token")
+        return token
+
     async def decisions(self, ip: str | None = None) -> list[Decision]:
         if self.config.crowdsec_lapi_url and self.config.crowdsec_lapi_key:
             params = {"ip": ip} if ip else {}
@@ -173,7 +229,7 @@ class CrowdSecClient:
                         exc,
                     )
                     raise
-                decisions = [_decision_from_lapi(item) for item in res.json()]
+                decisions = [_decision_from_lapi(item) for item in _response_rows(res)]
                 logger.debug("Fetched CrowdSec decisions from LAPI: count=%d", len(decisions))
                 return decisions
         args = [self.config.cscli_path, "decisions", "list", "-o", "json"]
@@ -184,7 +240,59 @@ class CrowdSecClient:
         logger.debug("Fetched CrowdSec decisions with cscli: count=%d", len(decisions))
         return decisions
 
-    async def alerts(self, ip: str | None = None, window: str | None = None) -> list[CrowdSecAlert]:
+    async def alerts_with_status(self, ip: str | None = None, window: str | None = None) -> dict[str, Any]:
+        effective_window = window or self.config.default_window
+        status = {
+            "available": False,
+            "source": None,
+            "auth_mode": None,
+            "warning": None,
+            "error": None,
+        }
+        if self.config.crowdsec_lapi_url:
+            if not self._machine_auth_configured():
+                status.update(
+                    {
+                        "source": "lapi",
+                        "auth_mode": "machine",
+                        "warning": (
+                            "CrowdSec alert lists require machine auth. Configure CROWDSEC_LAPI_MACHINE_ID "
+                            "and CROWDSEC_LAPI_MACHINE_PASSWORD to read /v1/alerts."
+                        ),
+                    }
+                )
+                logger.warning("CrowdSec alerts unavailable: LAPI machine auth is not configured")
+                return {"window": effective_window, "alerts": [], "status": status}
+            try:
+                token = await self._machine_token()
+                params = {"since": effective_window}
+                if ip:
+                    params["ip"] = ip
+                logger.debug("Fetching CrowdSec alerts from LAPI: url=%s params=%s", self.config.crowdsec_lapi_url, params)
+                async with httpx.AsyncClient(timeout=20) as client:
+                    res = await client.get(
+                        f"{self.config.crowdsec_lapi_url.rstrip('/')}/v1/alerts",
+                        params=params,
+                        headers={"Authorization": f"Bearer {token}"},
+                    )
+                    res.raise_for_status()
+                alerts = [_alert_from_lapi(item) for item in _response_rows(res)]
+                alerts = _filter_alerts_by_ip(alerts, ip)
+                status.update({"available": True, "source": "lapi", "auth_mode": "machine"})
+                logger.debug("Fetched CrowdSec alerts from LAPI: count=%d", len(alerts))
+                return {"window": effective_window, "alerts": alerts, "status": status}
+            except (httpx.HTTPError, RuntimeError) as exc:
+                status.update(
+                    {
+                        "source": "lapi",
+                        "auth_mode": "machine",
+                        "error": exc.__class__.__name__,
+                        "warning": "CrowdSec alert list request failed; alert lists are unavailable.",
+                    }
+                )
+                logger.warning("CrowdSec alerts unavailable: LAPI request failed error=%s", exc.__class__.__name__)
+                return {"window": effective_window, "alerts": [], "status": status}
+
         args = [self.config.cscli_path, "alerts", "list", "-o", "json", "--since", window or self.config.default_window]
         if ip:
             args.extend(["--ip", ip])
@@ -193,10 +301,22 @@ class CrowdSecClient:
             rows = await _run_json(args)
         except FileNotFoundError:
             logger.debug("cscli not found while fetching CrowdSec alerts: path=%s", self.config.cscli_path)
-            return []
-        alerts = [_alert_from_cscli(item) for item in rows]
+            status.update(
+                {
+                    "source": "cscli",
+                    "auth_mode": "cscli",
+                    "warning": "CrowdSec alert lists require machine auth through LAPI or a configured cscli fallback.",
+                }
+            )
+            return {"window": effective_window, "alerts": [], "status": status}
+        alerts = _filter_alerts_by_ip([_alert_from_cscli(item) for item in _alert_rows_from_response(rows)], ip)
+        status.update({"available": True, "source": "cscli", "auth_mode": "cscli"})
         logger.debug("Fetched CrowdSec alerts with cscli: count=%d", len(alerts))
-        return alerts
+        return {"window": effective_window, "alerts": alerts, "status": status}
+
+    async def alerts(self, ip: str | None = None, window: str | None = None) -> list[CrowdSecAlert]:
+        result = await self.alerts_with_status(ip=ip, window=window)
+        return result["alerts"]
 
     async def write_decision(
         self,
@@ -298,6 +418,52 @@ def _alert_from_cscli(item: dict[str, Any]) -> CrowdSecAlert:
         created_at=item.get("created_at") or item.get("start_at"),
         message=item.get("message"),
         events_count=item.get("events_count"),
+    )
+
+
+def _alert_rows_from_lapi_response(payload: Any) -> list[dict[str, Any]]:
+    return _alert_rows_from_response(payload)
+
+
+def _alert_rows_from_response(payload: Any) -> list[dict[str, Any]]:
+    if payload is None:
+        return []
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    if isinstance(payload, dict):
+        for key in ("alerts", "decisions", "items", "data"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return [item for item in value if isinstance(item, dict)]
+    return []
+
+
+def _response_rows(response: httpx.Response) -> list[dict[str, Any]]:
+    try:
+        payload = response.json()
+    except ValueError:
+        return []
+    return _alert_rows_from_response(payload)
+
+
+def _filter_alerts_by_ip(alerts: list[CrowdSecAlert], ip: str | None) -> list[CrowdSecAlert]:
+    if not ip:
+        return alerts
+    return [alert for alert in alerts if alert.ip == ip]
+
+
+def _alert_from_lapi(item: dict[str, Any]) -> CrowdSecAlert:
+    source = item.get("source", {}) if isinstance(item.get("source"), dict) else {}
+    meta = item.get("meta", {}) if isinstance(item.get("meta"), dict) else {}
+    events = item.get("events") if isinstance(item.get("events"), list) else None
+    return CrowdSecAlert(
+        ip=item.get("source_ip") or source.get("ip") or source.get("value") or meta.get("source_ip"),
+        scenario=item.get("scenario") or item.get("scenario_hash"),
+        country=item.get("source_country") or source.get("country") or source.get("cn") or meta.get("country"),
+        as_name=item.get("source_as_name") or source.get("as_name") or source.get("asname") or meta.get("as_name"),
+        created_at=item.get("created_at") or item.get("start_at"),
+        message=item.get("message"),
+        events_count=item.get("events_count") or (len(events) if events is not None else None),
     )
 
 
