@@ -583,6 +583,34 @@ async def test_write_scenario_simulation_requires_exact_user_confirmation_before
     assert not respx_mock.calls
 
 
+async def test_write_scenario_simulation_audits_failed_api_response(tmp_path, respx_mock):
+    audit_log = tmp_path / "audit.jsonl"
+    client = CrowdSecClient(_lapi_config(audit_log))
+    respx_mock.post("http://crowdsec:8080/v1/watchers/login").respond(200, json={"token": "machine-token"})
+    respx_mock.post("http://crowdsec:8080/v1/scenarios/local%2Fsnort-misc-attack-repeat/simulation").respond(
+        404,
+        json={"message": "not found"},
+    )
+
+    with pytest.raises(Exception, match="404"):
+        await client.write_scenario_simulation(
+            action="enable",
+            scenario="local/snort-misc-attack-repeat",
+            reason="new scenario should soak before remediation",
+            user_confirmation="confirm scenario simulation enable local/snort-misc-attack-repeat",
+            execute=True,
+        )
+
+    entries = _audit_entries(audit_log)
+    assert len(entries) == 2
+    assert entries[0]["status"] == "attempted"
+    assert entries[1]["status"] == "failed"
+    assert entries[1]["executed"] is False
+    assert entries[1]["status_code"] == 404
+    assert entries[1]["response"] == {"message": "not found"}
+    assert entries[1]["error"] == "HTTPStatusError"
+
+
 async def test_write_scenario_simulation_rejects_invalid_scenario_before_audit(tmp_path):
     audit_log = tmp_path / "audit.jsonl"
     client = CrowdSecClient(_config(audit_log))
