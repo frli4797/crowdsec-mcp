@@ -2,13 +2,25 @@
 
 ## Unreleased
 
+- Nothing yet.
+
+## v0.3.1 - 2026-08-13
+
 ### Added
 
 - Added `enable_scenario_simulation(...)` and `disable_scenario_simulation(...)` to prepare audited `cscli simulation enable/disable <scenario>` commands for manual review.
 
+### Changed
+
+- Upgraded direct GitHub Actions cache usage to `actions/cache@v5` for Node.js 24 compatibility.
+- Hardened Python virtualenv cache keys with the resolved Python patch version.
+- Split Docker dependency installation from source installation so code-only image builds can reuse dependency layers across architectures.
+
 ### Security And Safety
 
 - Scenario simulation tools validate one scenario name, require a human-readable reason, remain prepare-only, return `executed=false`, and include non-secret auth context that distinguishes LAPI machine-auth availability from the local `cscli` simulation command proposal.
+- CrowdSec-only MCP boundary is unchanged.
+- Write actions remain prepare-only, with no MCP-executed CrowdSec mutations.
 - No MCP-executed CrowdSec mutations are introduced.
 
 ## v0.3.0 - 2026-08-13
