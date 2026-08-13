@@ -10,7 +10,8 @@
 
 - [ ] This keeps the MCP CrowdSec-only.
 - [ ] This does not add direct VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxy, or Docker socket access.
-- [ ] Write actions remain single-IP and dry-run by default.
+- [ ] IP decision write actions remain single-IP and prepare-only.
+- [ ] Any API write action is gated by `WRITE_OPERATIONS_ENABLED=true`, machine-authenticated, narrowly scoped, protected by exact `user_confirmation`, and audited.
 
 ## Validation
 
@@ -21,4 +22,3 @@
 ## Release Notes
 
 <!-- User-visible changes for the next release. Use "None" for internal-only changes. -->
-

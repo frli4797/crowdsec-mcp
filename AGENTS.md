@@ -127,6 +127,7 @@ When documentation overlaps, prefer linking over copying. If the same content ap
 - Do not rewrite history unless explicitly requested.
 - Do not revert user changes unless explicitly requested.
 - Commit focused changes with conventional, descriptive messages.
+- When creating a pull request, always use the required metadata contract from `docs/pull-request-rules.md`: title prefix `Feature`, `Fix`, `Chore`, `Docs`, `CI/CD`, or `Release`, plus body sections `## Summary`, `## Type`, and `## Validation`.
 
 ## Useful Docs
 
