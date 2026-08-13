@@ -10,7 +10,6 @@ The server now has a useful read-side foundation:
 - `decision_inventory` summarizes active decisions with filters, grouped counts, expiry views, long-lived/stale views, and representative rows.
 - LAPI-backed alert reads use optional CrowdSec machine auth and report an explicit warning when only bouncer decision auth is configured.
 - write tools are prepare-only and audited; the legacy `execute` flag is accepted but does not mutate CrowdSec state.
-- scenario simulation tools prepare audited commands to move one scenario into or out of simulation, without executing CrowdSec changes.
 
 Supported runtime reads use CrowdSec LAPI. Decision reads use bouncer API-key auth; alert reads require machine auth. Actual `cscli` reads and `cscli` execution are not supported today. `cscli` appears in current behavior only as prepared command text returned for human review.
 
@@ -217,7 +216,7 @@ This gives operators:
 - a concrete command to review
 - a record of write intent
 - a safe path for local MCP testing
-- a narrow single-IP decision surface and single-scenario simulation surface for future execution review
+- a narrow single-IP surface for future execution
 
 The audit log path is configured with:
 
@@ -227,66 +226,18 @@ WRITE_AUDIT_LOG_PATH
 
 For containerized Codex MCP usage, prefer a host-mounted audit directory so logs survive `docker compose run --rm`.
 
-### Scenario Simulation Intents
-
-Status: implemented as `enable_scenario_simulation(...)` and `disable_scenario_simulation(...)`.
-
-Scenario simulation moves are treated as prepared operator intents, not executed mutations. They generate:
-
-```bash
-cscli simulation enable <scenario>
-cscli simulation disable <scenario>
-```
-
-The tools require one scenario name and a human-readable reason. They append to the same JSON Lines write-audit log as IP decision intents and return `executed=false`, including when a legacy `execute=true` flag is supplied. Responses include non-secret auth context that reports LAPI machine-auth availability while making clear that the prepared simulation command is a local `cscli` configuration operation.
-
-This is useful for:
-
-- putting newly installed or newly tuned scenarios into simulation first
-- promoting a reviewed scenario out of simulation after a clean soak period
-- rolling a noisy scenario back into simulation while preserving an audit trail
-
-Remaining useful follow-up:
-
-- expose recent scenario simulation intents through the future `recent_write_intents` read-only audit tool
-- decide whether future decision execution should use `cscli` with machine credentials or direct LAPI machine-auth writes
-- only consider scenario simulation execution through an explicit local `cscli` and configuration mount design, unless CrowdSec exposes a supported LAPI endpoint for simulation management later
-- keep any future execution single-scenario only, with explicit reason and audit records before and after execution
-
 ### Future Execution Options
 
-When decision write operations are revisited, prefer supported CrowdSec API-level access over remote command execution. API behavior is easier to constrain, audit, test, and reason about than shelling out to `cscli` on another system.
+When write operations are revisited, decide first between:
 
-Preferred order:
-
-1. implement direct LAPI machine-auth writes where CrowdSec exposes supported endpoints
-2. continue returning reviewed `cscli` command text when no supported API write path exists
-3. consider local `cscli` execution only with an explicit design note proving why API-level access is unavailable or unsafe
-
-Do not add remote `cscli` execution as the default mutation architecture.
+1. packaging or mounting `cscli` plus machine credentials
+2. implementing direct LAPI machine-auth writes
 
 Until that decision is made, keep write execution PRs draft or experimental.
 
-#### Option 1: Execute Decisions Through LAPI
+#### Option 1: Execute With cscli
 
-A future implementation could call LAPI directly with machine credentials for decision writes.
-
-Pros:
-
-- structured HTTP behavior
-- easier response handling and retries
-- easier unit testing with HTTP mocks
-- avoids installing `cscli` in the MCP image
-
-Cons:
-
-- requires exact CrowdSec write endpoint implementation
-- still requires machine credentials
-- less familiar to operators than `cscli`
-
-#### Option 2: Generate or Execute With cscli
-
-Status: command generation is supported for operator review; execution is a future option only and should not be remote-first.
+Status: future option only; not supported today.
 
 The proposed write execution path would use:
 
@@ -315,7 +266,6 @@ Important distinction:
 
 - bouncer API keys are for reading decisions
 - machine credentials are needed for creating and deleting decisions
-- scenario simulation is managed by `cscli` through local simulation configuration, not by the bouncer decision API
 
 If this path is used in the future, keep the container setup explicit:
 
@@ -332,24 +282,40 @@ Pros:
 
 - matches CrowdSec operator UX
 - easy to show equivalent command to humans
+- avoids implementing LAPI write details immediately
 
 Cons:
 
 - requires packaging or mounting `cscli`
 - requires machine credential handling in the MCP runtime
 - subprocess behavior must be carefully audited and tested
-- must not become remote shell execution when API-level access can do the job
+
+#### Option 2: Execute Through LAPI
+
+A future implementation could call LAPI directly with machine credentials.
+
+Pros:
+
+- structured HTTP behavior
+- easier response handling and retries
+- easier unit testing with HTTP mocks
+- avoids installing `cscli` in the MCP image
+
+Cons:
+
+- requires exact CrowdSec write endpoint implementation
+- still requires machine credentials
+- less familiar to operators than `cscli`
 
 ### Safety Constraints For Any Write Path
 
 Any future write execution should keep these constraints:
 
-- decision writes are single-IP only
-- scenario simulation writes are single-scenario only
+- single IP only
 - no IP ranges
 - no bulk ban or bulk unban
 - no delete-all operation
-- required reason for ban, allow, unban, and scenario simulation changes
+- required reason for ban
 - explicit `execute=true` for mutation
 - prepared command returned even when executed
 - audit entry before execution

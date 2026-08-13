@@ -2,7 +2,7 @@
 
 `crowdsec-ops-mcp` is a local MCP server for CrowdSec operations.
 
-It exposes CrowdSec decisions, alerts, summaries, safe single-IP action proposals, and scenario simulation proposals to MCP clients. It is intentionally CrowdSec-only: it does not connect to VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
+It exposes CrowdSec decisions, alerts, summaries, and safe single-IP action proposals to MCP clients. It is intentionally CrowdSec-only: it does not connect to VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
 
 Supported runtime reads use CrowdSec LAPI. Decision reads use a bouncer API key. Alert reads require optional CrowdSec machine credentials because bouncer keys can only read decisions. Actual `cscli` reads or `cscli` execution are not supported by the MCP today; write tools only generate `cscli` command text for an operator to review and run outside the MCP if appropriate.
 
@@ -22,11 +22,8 @@ Supported runtime reads use CrowdSec LAPI. Decision reads use a bouncer API key.
 - Find top offending source IPs.
 - Generate scenario-tuning proposals from repeated alert patterns.
 - Prepare audited single-IP ban, allow, or unban commands for manual review.
-- Prepare audited commands to move one scenario into or out of simulation for manual review.
 
-Write tools do not execute CrowdSec changes. They validate the requested IP or scenario, prepare a plausible `cscli` command for an operator to review, append the prepared intent to the JSON Lines audit log, and return `executed=false`. Scenario simulation responses also include non-secret auth context so agents can distinguish LAPI machine-auth availability from the local `cscli` simulation command being proposed.
-
-For future capabilities, prefer supported CrowdSec API-level access over remote `cscli` execution. `cscli` text in responses is for local operator review unless a future design explicitly documents why no API-level alternative exists.
+Write tools do not execute CrowdSec changes. They validate a single IP, prepare a plausible `cscli` command for an operator to review, append the prepared intent to the JSON Lines audit log, and return `executed=false`.
 
 ## Getting Started
 
@@ -50,8 +47,6 @@ See [docs/decision-gap-report-example.md](docs/decision-gap-report-example.md) f
 - `unban_ip(ip, reason?, execute=false)`
 - `allow_ip(ip, duration?, reason, execute=false)`
 - `ban_ip(ip, duration?, reason, execute=false)`
-- `enable_scenario_simulation(scenario, reason, execute=false)`
-- `disable_scenario_simulation(scenario, reason, execute=false)`
 
 ## Configuration
 

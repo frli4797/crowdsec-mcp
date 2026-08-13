@@ -26,7 +26,6 @@ Small docs fixes, typo fixes, dependency updates, and obvious CI maintenance do 
 - Do not add direct access to VictoriaMetrics, VictoriaLogs, Grafana, Snort, reverse proxies, or Docker.
 - Do not add bulk ban, bulk unban, delete-all, or broad mutation tools.
 - Keep write actions single-IP and prepare-only; the MCP must not execute CrowdSec mutations.
-- Prefer supported CrowdSec API-level access over remote `cscli` execution for new capabilities.
 - Scenario, parser, and profile changes must be proposed, not applied automatically.
 
 ## Labeling

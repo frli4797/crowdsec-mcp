@@ -13,11 +13,8 @@ This MCP is CrowdSec-only.
 Allowed integrations:
 
 - CrowdSec LAPI for read-only decision data
-- CrowdSec LAPI machine auth for alert reads
-- supported CrowdSec API-level access for future reads or writes
-- `cscli` command generation for reviewed single-IP decision intents and single-scenario simulation intents
-
-Prefer API-level access over remote command execution. Do not add remote `cscli` execution when a supported CrowdSec API path can provide the capability. If `cscli` is used, keep it to local operator command generation unless a future design explicitly documents why no API-level alternative exists.
+- `cscli` for alert reads
+- `cscli` command generation for reviewed single-IP write intents
 
 Do not add direct access to:
 
@@ -35,9 +32,8 @@ For broader security investigations, agents should orchestrate this MCP alongsid
 - Default to read-only tools and read-side improvements.
 - Write tools may prepare commands only; they must not execute CrowdSec mutations.
 - Keep write intents single-IP only.
-- Keep scenario simulation intents single-scenario only.
 - Do not add bulk ban, bulk unban, range ban, delete-all, parser mutation, scenario mutation, or profile mutation tools.
-- Require a human-readable reason for any prepared ban, allow, unban, or scenario simulation action.
+- Require a human-readable reason for any prepared ban or allow action.
 - Prefer temporary allowlisting over permanent allowlisting.
 - Preserve audit logging for prepared write intents.
 - Do not expose API keys, machine credentials, URL-embedded credentials, or audit-log secrets in responses or logs.
