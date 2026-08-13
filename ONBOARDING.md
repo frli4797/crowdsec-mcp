@@ -12,7 +12,8 @@ It only talks to CrowdSec. For broader investigations, use it alongside separate
 
 - Docker and Docker Compose
 - Network access from this container to CrowdSec LAPI
-- A CrowdSec LAPI key for read access
+- A CrowdSec bouncer LAPI key for decision reads
+- Optional CrowdSec machine credentials for alert list reads
 - Optional: `CSCLI_PATH` configuration if you want generated command text to match a non-default operator command path
 
 Do not mount the Docker socket into this container.
@@ -39,6 +40,9 @@ cp docker-compose.example.yml docker-compose.yml
 
 ```bash
 CROWDSEC_LAPI_KEY=replace-with-your-lapi-key
+# Optional, required only for recent alert lists:
+CROWDSEC_LAPI_MACHINE_ID=replace-with-machine-id
+CROWDSEC_LAPI_MACHINE_PASSWORD=replace-with-machine-password
 ```
 
 3. Confirm the CrowdSec URL and network in `docker-compose.yml`:
@@ -46,9 +50,36 @@ CROWDSEC_LAPI_KEY=replace-with-your-lapi-key
 ```yaml
 environment:
   CROWDSEC_LAPI_URL: http://crowdsec:8080
+  CROWDSEC_LAPI_KEY: ${CROWDSEC_LAPI_KEY}
+  CROWDSEC_LAPI_MACHINE_ID: ${CROWDSEC_LAPI_MACHINE_ID:-}
+  CROWDSEC_LAPI_MACHINE_PASSWORD: ${CROWDSEC_LAPI_MACHINE_PASSWORD:-}
 networks:
   - security
 ```
+
+## Alert List Machine Auth
+
+CrowdSec bouncer API keys can read decisions, but they cannot read `/v1/alerts`. To let this MCP report recent alert counts and alert lists, create a dedicated CrowdSec machine on the CrowdSec host:
+
+```bash
+sudo cscli machines add crowdsec-ops-mcp
+```
+
+CrowdSec prints a generated password and writes machine credentials for local clients. Put the machine name and generated password in the MCP `.env`:
+
+```bash
+CROWDSEC_LAPI_MACHINE_ID=crowdsec-ops-mcp
+CROWDSEC_LAPI_MACHINE_PASSWORD=replace-with-generated-password
+```
+
+If the machine is created from a different host with `cscli lapi register`, validate it on the LAPI server:
+
+```bash
+sudo cscli machines list
+sudo cscli machines validate <machineName>
+```
+
+If these variables are not configured, tools that depend on alerts return an `alert_visibility.warning` explaining that alert lists require machine auth instead of silently implying there were zero alerts.
 
 4. Pull and start the published container:
 
@@ -174,6 +205,7 @@ If reads return no data:
 
 - Confirm `CROWDSEC_LAPI_URL` points to the CrowdSec LAPI from inside the container network.
 - Confirm `CROWDSEC_LAPI_KEY` is present in the container environment.
+- Confirm `CROWDSEC_LAPI_MACHINE_ID` and `CROWDSEC_LAPI_MACHINE_PASSWORD` are present when you need recent alert lists.
 - Confirm CrowdSec has active decisions or recent alerts for the requested window.
 - Do not expect `cscli` fallback reads; actual `cscli` reads are not supported by the MCP today.
 

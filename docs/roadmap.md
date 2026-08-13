@@ -8,9 +8,10 @@ The server now has a useful read-side foundation:
 
 - `crowdsec_health` explains backend mode, LAPI reachability, `cscli` path diagnostics, configured defaults, write-audit path, and exposed capabilities.
 - `decision_inventory` summarizes active decisions with filters, grouped counts, expiry views, long-lived/stale views, and representative rows.
+- LAPI-backed alert reads use optional CrowdSec machine auth and report an explicit warning when only bouncer decision auth is configured.
 - write tools are prepare-only and audited; the legacy `execute` flag is accepted but does not mutate CrowdSec state.
 
-Supported runtime reads use CrowdSec LAPI. Actual `cscli` reads and `cscli` execution are not supported today. `cscli` appears in current behavior only as prepared command text returned for human review.
+Supported runtime reads use CrowdSec LAPI. Decision reads use bouncer API-key auth; alert reads require machine auth. Actual `cscli` reads and `cscli` execution are not supported today. `cscli` appears in current behavior only as prepared command text returned for human review.
 
 The near-term priority remains read-side depth and operator ergonomics before revisiting any production write execution.
 
@@ -30,7 +31,7 @@ Status: partially implemented.
 
 Implemented:
 
-- LAPI-backed `decisions()` and `alerts()` have representative tests.
+- LAPI-backed `decisions()` and machine-auth `alerts()` have representative tests.
 - health reporting covers LAPI reachability and sample-count behavior.
 - logging stays on stderr so stdio transport remains valid.
 
@@ -49,6 +50,7 @@ Implemented fields:
 
 - backend mode, currently expected to be LAPI for supported deployments
 - LAPI URL presence and reachability, without exposing secrets
+- alert machine-auth presence and authentication status, without exposing secrets
 - `cscli` path/availability diagnostics as implementation detail only; this is not a supported read or execution mode
 - default lookback window
 - write audit log path

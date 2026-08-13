@@ -7,6 +7,8 @@ services:
       DEFAULT_WINDOW: 24h
       CROWDSEC_LAPI_URL: http://crowdsec:8080
       CROWDSEC_LAPI_KEY: ${CROWDSEC_LAPI_KEY}
+      CROWDSEC_LAPI_MACHINE_ID: ${CROWDSEC_LAPI_MACHINE_ID:-}
+      CROWDSEC_LAPI_MACHINE_PASSWORD: ${CROWDSEC_LAPI_MACHINE_PASSWORD:-}
       WRITE_AUDIT_LOG_PATH: /var/log/crowdsec-ops-mcp/write-audit.jsonl
     networks:
       - security
